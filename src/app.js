@@ -78,6 +78,7 @@ function showError(message) {
 
   fileError.textContent = message;
   fileError.classList.remove("hidden");
+  fileError.style.whiteSpace = "pre-line";
 }
 
 function hideError() {
@@ -209,6 +210,49 @@ function getValue(row, possibleHeaders) {
 
 function cleanValue(value) {
   return String(value ?? "").trim();
+}
+
+function validateQuestions(questions) {
+  const errors = [];
+
+  questions.forEach((question, index) => {
+    const rowNumber = index + 2;
+
+    if (!question.question.trim()) {
+      errors.push(`Baris ${rowNumber}: pertanyaan kosong.`);
+      return;
+    }
+
+    if (question.type === "multiple_choice") {
+      if (question.options.length < 2) {
+        errors.push(
+          `Baris ${rowNumber}: pilihan ganda harus memiliki minimal 2 opsi.`,
+        );
+      }
+
+      if (appState.formSettings.isQuiz && !question.answer) {
+        errors.push(
+          `Baris ${rowNumber}: jawaban wajib diisi saat mode quiz aktif.`,
+        );
+      }
+
+      if (question.answer) {
+        const answerExists = question.options.some(
+          (option) =>
+            option.toLowerCase().trim() ===
+            question.answer.toLowerCase().trim(),
+        );
+
+        if (!answerExists) {
+          errors.push(
+            `Baris ${rowNumber}: jawaban "${question.answer}" tidak cocok dengan pilihan.`,
+          );
+        }
+      }
+    }
+  });
+
+  return errors;
 }
 
 function extractQuestions(rows) {
@@ -528,6 +572,14 @@ fileInput?.addEventListener("change", async (event) => {
 
   try {
     const questions = await readQuestionFile(file);
+
+    const validationErrors = validateQuestions(questions);
+
+    if (validationErrors.length > 0) {
+      throw new Error(
+        "File memiliki masalah:\n\n" + validationErrors.join("\n"),
+      );
+    }
 
     appState.questions = questions;
 
