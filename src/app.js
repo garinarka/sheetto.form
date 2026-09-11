@@ -774,12 +774,44 @@ continueButton?.addEventListener("click", () => {
   console.log("Final app state:", appState);
 });
 
-document.querySelector("#template-button")?.addEventListener("click", () => {
-  setStatus(
-    "Gunakan header: Question, Option 1, Option 2, Option 3, Option 4, Answer.",
-    "default",
-  );
-});
+function downloadExcelTemplate() {
+  if (!window.XLSX) {
+    setStatus("Library Excel belum siap. Coba refresh halaman.", "error");
+    return;
+  }
+
+  const rows = [
+    {
+      Question: "Ibukota Indonesia adalah ...",
+      "Option 1": "Jakarta",
+      "Option 2": "Bandung",
+      "Option 3": "Surabaya",
+      "Option 4": "Yogyakarta",
+      Answer: "Jakarta",
+    },
+    {
+      Question: "Jelaskan pengertian seni tari.",
+      "Option 1": "",
+      "Option 2": "",
+      "Option 3": "",
+      "Option 4": "",
+      Answer: "",
+    },
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Soal");
+
+  XLSX.writeFile(workbook, "template-soal-google-form.xlsx");
+
+  setStatus("Template Excel berhasil dibuat.", "success");
+}
+
+document
+  .querySelector("#template-button")
+  ?.addEventListener("click", downloadExcelTemplate);
 
 formTitleInput?.addEventListener("input", collectFormSettings);
 formDescriptionInput?.addEventListener("input", collectFormSettings);
