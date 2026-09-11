@@ -560,25 +560,205 @@ destinationCards.forEach((card) => {
   });
 });
 
+async function googleFormsRequest(url, options = {}) {
+  if (!appState.google.accessToken) {
+    throw new Error("Hubungkan akun Google terlebih dahulu.");
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${appState.google.accessToken}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      data.error?.message || `Google Forms API gagal (${response.status}).`,
+    );
+  }
+
+  return data;
+}
+
+function extractFormId(value) {
+  const match = String(value || "").match(/\/forms\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : String(value || "").trim();
+}
+
+function buildBatchRequests() {
+  const requests = [];
+  const settings = appState.formSettings;
+
+  if (settings.description) {
+    requests.push({
+      updateFormInfo: {
+        info: { description: settings.description },
+        updateMask: "description",
+      },
+    });
+  }
+
+  requests.push({
+    updateSettings: {
+      settings: { quizSettings: { isQuiz: Boolean(settings.isQuiz) } },
+      updateMask: "quizSettings.isQuiz",
+    },
+  });
+
+  appState.questions.forEach((question, index) => {
+    const item = {
+      title: question.question,
+      questionItem: {
+        question: {
+          required: Boolean(settings.required),
+        },
+      },
+    };
+
+    if (question.type === "multiple_choice") {
+      item.questionItem.question.choiceQuestion = {
+        type: "RADIO",
+        options: question.options.map((value) => ({ value })),
+      };
+      if (settings.isQuiz && question.answer) {
+        const answerIndex = question.options.findIndex(
+          (option) => option.toLowerCase() === question.answer.toLowerCase(),
+        );
+        if (answerIndex >= 0) {
+          item.questionItem.question.grading = {
+            pointValue: 1,
+            correctAnswers: {
+              answers: [{ value: question.options[answerIndex] }],
+            },
+          };
+        }
+      }
+    } else {
+      item.questionItem.question.textQuestion = { paragraph: true };
+    }
+
+    requests.push({ createItem: { item, location: { index } } });
+  });
+
+  return requests;
+}
+
+async function createGoogleForm() {
+  const settings = collectFormSettings();
+  if (!appState.google.connected)
+    throw new Error("Hubungkan akun Google terlebih dahulu.");
+  if (!settings.title) throw new Error("Judul Google Form belum diisi.");
+
+  const created = await googleFormsRequest(
+    "https://forms.googleapis.com/v1/forms",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        info: { title: settings.title, documentTitle: settings.title },
+      }),
+    },
+  );
+
+  await googleFormsRequest(
+    `https://forms.googleapis.com/v1/forms/${created.formId}:batchUpdate`,
+    {
+      method: "POST",
+      body: JSON.stringify({ requests: buildBatchRequests() }),
+    },
+  );
+
+  return {
+    formId: created.formId,
+    title: settings.title,
+    url: `https://docs.google.com/forms/d/${created.formId}/edit`,
+  };
+}
+
+async function appendToExistingGoogleForm() {
+  const settings = collectFormSettings();
+  const formId = extractFormId(settings.existingFormUrl);
+  if (!formId) throw new Error("Link Google Form belum valid.");
+
+  const requests = buildBatchRequests().filter(
+    (request) => !request.updateFormInfo && !request.updateSettings,
+  );
+  await googleFormsRequest(
+    `https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`,
+    {
+      method: "POST",
+      body: JSON.stringify({ requests }),
+    },
+  );
+
+  return {
+    formId,
+    title: settings.title || "Google Form",
+    url: `https://docs.google.com/forms/d/${formId}/edit`,
+  };
+}
+
+function showCreatedFormResult(result) {
+  const section = document.querySelector("#create-form-section");
+  const resultBox = document.querySelector("#created-form-result");
+  const title = document.querySelector("#created-form-title");
+  const link = document.querySelector("#created-form-link");
+
+  section?.classList.remove("hidden");
+  resultBox?.classList.remove("hidden");
+  if (title) title.textContent = `${result.title} berhasil diproses`;
+  if (link) {
+    link.href = result.url;
+    link.textContent = result.url;
+  }
+}
+
+async function processGoogleForm() {
+  const button = document.querySelector("#create-google-form-button");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Sedang memproses...";
+  }
+
+  try {
+    const result =
+      appState.destinationMode === "new"
+        ? await createGoogleForm()
+        : await appendToExistingGoogleForm();
+
+    showCreatedFormResult(result);
+    setStatus("Google Form berhasil diproses.", "success");
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || "Google Form gagal diproses.", "error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Buat Google Form sekarang";
+    }
+  }
+}
+
 continueButton?.addEventListener("click", () => {
-  if (appState.questions.length === 0) {
+  if (!appState.questions.length) {
     setStatus("Upload file soal terlebih dahulu.", "error");
     return;
   }
-
   if (!appState.destinationMode) {
     setStatus("Pilih tujuan Google Form terlebih dahulu.", "error");
     return;
   }
 
   const settings = collectFormSettings();
-
-  if (!settings.title) {
+  if (!settings.title && appState.destinationMode === "new") {
     setStatus("Isi judul Google Form terlebih dahulu.", "error");
     formTitleInput?.focus();
     return;
   }
-
   if (appState.destinationMode === "existing" && !settings.existingFormUrl) {
     setStatus("Masukkan link Google Form yang sudah ada.", "error");
     existingFormUrlInput?.focus();
@@ -586,32 +766,31 @@ continueButton?.addEventListener("click", () => {
   }
 
   updateSteps(3);
-
+  document.querySelector("#create-form-section")?.classList.remove("hidden");
   setStatus(
-    "Pengaturan form berhasil disimpan. Integrasi Google Forms akan dibuat pada tahap berikutnya.",
+    "Pengaturan form siap. Hubungkan Google lalu proses form.",
     "success",
   );
-
   console.log("Final app state:", appState);
 });
 
-updateSteps(1);
-updateContinueButton();
-
-formTitleInput?.addEventListener("input", collectFormSettings);
-
-formDescriptionInput?.addEventListener("input", collectFormSettings);
-
-formIsQuizInput?.addEventListener("change", collectFormSettings);
-
-formRequiredInput?.addEventListener("change", collectFormSettings);
-
-existingFormUrlInput?.addEventListener("input", collectFormSettings);
-
-console.log("Google config loaded:", {
-  hasClientId: Boolean(window.GOOGLE_CONFIG?.clientId),
+document.querySelector("#template-button")?.addEventListener("click", () => {
+  setStatus(
+    "Gunakan header: Question, Option 1, Option 2, Option 3, Option 4, Answer.",
+    "default",
+  );
 });
 
+formTitleInput?.addEventListener("input", collectFormSettings);
+formDescriptionInput?.addEventListener("input", collectFormSettings);
+formIsQuizInput?.addEventListener("change", collectFormSettings);
+formRequiredInput?.addEventListener("change", collectFormSettings);
+existingFormUrlInput?.addEventListener("input", collectFormSettings);
 googleConnectButton?.addEventListener("click", connectToGoogle);
+document
+  .querySelector("#create-google-form-button")
+  ?.addEventListener("click", processGoogleForm);
 
+updateSteps(1);
+updateContinueButton();
 updateGoogleConnectionUI();
