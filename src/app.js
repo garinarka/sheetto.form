@@ -3,6 +3,10 @@ const appState = {
   destinationMode: null,
   currentStep: 1,
   questions: [],
+  google: {
+    accessToken: null,
+    connected: false,
+  },
   formSettings: {
     title: "",
     description: "",
@@ -38,6 +42,16 @@ const formIsQuizInput = document.querySelector("#form-is-quiz");
 const formRequiredInput = document.querySelector("#form-required");
 const existingFormSettings = document.querySelector("#existing-form-settings");
 const existingFormUrlInput = document.querySelector("#existing-form-url");
+
+const googleConnectButton = document.querySelector("#google-connect-button");
+
+const googleConnectionStatus = document.querySelector(
+  "#google-connection-status",
+);
+
+const googleConnectionDetail = document.querySelector(
+  "#google-connection-detail",
+);
 
 function setStatus(message, type = "default") {
   if (!statusMessage) return;
@@ -357,6 +371,96 @@ function updateFileSummary(file, questions) {
   fileSummary.classList.remove("hidden");
 }
 
+function updateGoogleConnectionUI() {
+  if (
+    !googleConnectButton ||
+    !googleConnectionStatus ||
+    !googleConnectionDetail
+  ) {
+    return;
+  }
+
+  if (appState.google.connected) {
+    googleConnectionStatus.textContent = "Sudah terhubung ke akun Google.";
+
+    googleConnectionStatus.className = "mt-1 text-sm text-emerald-700";
+
+    googleConnectButton.textContent = "Google Terhubung";
+    googleConnectButton.disabled = true;
+
+    googleConnectionDetail.textContent =
+      "Access token berhasil diterima. Tahap berikutnya akan menggunakan token ini untuk Google Forms API.";
+
+    googleConnectionDetail.classList.remove("hidden");
+  } else {
+    googleConnectionStatus.textContent = "Belum terhubung ke Google.";
+
+    googleConnectionStatus.className = "mt-1 text-sm text-stone-500";
+
+    googleConnectButton.textContent = "Hubungkan Google";
+    googleConnectButton.disabled = false;
+
+    googleConnectionDetail.textContent = "";
+    googleConnectionDetail.classList.add("hidden");
+  }
+}
+
+function connectToGoogle() {
+  if (!window.google?.accounts?.oauth2) {
+    setStatus(
+      "Google Identity Services belum siap. Tunggu sebentar lalu coba lagi.",
+      "error",
+    );
+
+    return;
+  }
+
+  if (
+    !window.GOOGLE_CONFIG?.clientId ||
+    window.GOOGLE_CONFIG.clientId.includes("GANTI_DENGAN")
+  ) {
+    setStatus("Client ID Google belum dikonfigurasi dengan benar.", "error");
+
+    return;
+  }
+
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: window.GOOGLE_CONFIG.clientId,
+
+    scope: "https://www.googleapis.com/auth/forms.body",
+
+    callback: (tokenResponse) => {
+      if (tokenResponse.error) {
+        console.error("Google OAuth error:", tokenResponse);
+
+        setStatus("Koneksi Google gagal atau izin ditolak.", "error");
+
+        return;
+      }
+
+      if (!tokenResponse.access_token) {
+        setStatus("Google tidak mengembalikan access token.", "error");
+
+        return;
+      }
+
+      appState.google.accessToken = tokenResponse.access_token;
+
+      appState.google.connected = true;
+
+      updateGoogleConnectionUI();
+
+      setStatus("Berhasil terhubung ke Google.", "success");
+
+      console.log("Google OAuth berhasil.");
+    },
+  });
+
+  tokenClient.requestAccessToken({
+    prompt: "consent",
+  });
+}
+
 async function readQuestionFile(file) {
   if (!window.XLSX) {
     throw new Error(
@@ -507,3 +611,7 @@ existingFormUrlInput?.addEventListener("input", collectFormSettings);
 console.log("Google config loaded:", {
   hasClientId: Boolean(window.GOOGLE_CONFIG?.clientId),
 });
+
+googleConnectButton?.addEventListener("click", connectToGoogle);
+
+updateGoogleConnectionUI();
