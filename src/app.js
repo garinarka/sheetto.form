@@ -3,213 +3,199 @@ const appState = {
   destinationMode: null,
   currentStep: 1,
   questions: [],
-  workbookName: null,
 };
 
 const fileInput = document.querySelector("#question-file");
-const fileName = document.querySelector("#file-name");
+const fileNameElement = document.querySelector("#file-name");
 const fileSummary = document.querySelector("#file-summary");
 const fileSummaryName = document.querySelector("#file-summary-name");
 const fileSummaryCount = document.querySelector("#file-summary-count");
 const fileError = document.querySelector("#file-error");
-
 const continueButton = document.querySelector("#continue-button");
 const statusMessage = document.querySelector("#status-message");
 const destinationHelp = document.querySelector("#destination-help");
-
-const destinationOptions = document.querySelectorAll(".destination-card");
-
-const stepItems = document.querySelectorAll(".step-item");
 const mobileStepLabel = document.querySelector("#mobile-step-label");
 
-const destinationDescriptions = {
-  create_new: `
-    <strong class="font-semibold text-[var(--color-ink)]">
-      Mode formulir baru dipilih.
-    </strong>
-    <br />
-    Nanti kamu dapat mengatur judul formulir, deskripsi,
-    dan pengaturan kuis sebelum formulir dibuat.
-  `,
+const previewSection = document.querySelector("#preview-section");
+const previewList = document.querySelector("#preview-list");
+const previewCount = document.querySelector("#preview-count");
 
-  add_existing: `
-    <strong class="font-semibold text-[var(--color-ink)]">
-      Mode formulir yang sudah ada dipilih.
-    </strong>
-    <br />
-    Nanti kamu dapat menempelkan link Google Form tujuan.
-    Soal lama tidak akan dihapus. Soal baru akan ditambahkan
-    di bagian akhir formulir.
-  `,
-};
+const stepItems = document.querySelectorAll(".step-item");
+const destinationCards = document.querySelectorAll(".destination-card");
 
-const stepNames = {
-  1: "File soal",
-  2: "Tujuan formulir",
-  3: "Periksa",
-};
+function setStatus(message, type = "default") {
+  if (!statusMessage) return;
 
-function updateSteps() {
-  stepItems.forEach((item) => {
-    const step = Number(item.dataset.step);
+  statusMessage.textContent = message;
 
-    item.dataset.active = String(step === appState.currentStep);
+  statusMessage.classList.remove(
+    "text-stone-500",
+    "text-emerald-700",
+    "text-red-600",
+  );
 
-    item.dataset.complete = String(step < appState.currentStep);
-  });
-
-  mobileStepLabel.textContent =
-    `Langkah ${appState.currentStep} dari 3 · ` +
-    stepNames[appState.currentStep];
+  if (type === "success") {
+    statusMessage.classList.add("text-emerald-700");
+  } else if (type === "error") {
+    statusMessage.classList.add("text-red-600");
+  } else {
+    statusMessage.classList.add("text-stone-500");
+  }
 }
 
-function updateContinueButton() {
-  const isReady =
-    appState.selectedFile !== null &&
-    appState.destinationMode !== null &&
-    appState.questions.length > 0;
+function showError(message) {
+  if (!fileError) return;
 
-  continueButton.disabled = !isReady;
-
-  if (!appState.selectedFile) {
-    statusMessage.textContent = "Pilih file soal terlebih dahulu.";
-    return;
-  }
-
-  if (appState.questions.length === 0) {
-    statusMessage.textContent = "Belum ada soal yang berhasil dibaca.";
-    return;
-  }
-
-  if (!appState.destinationMode) {
-    statusMessage.textContent = "Pilih tujuan formulir untuk melanjutkan.";
-    return;
-  }
-
-  statusMessage.textContent = "Semua sudah siap. Kamu bisa melanjutkan.";
-}
-
-function showFileError(message) {
   fileError.textContent = message;
   fileError.classList.remove("hidden");
-  fileSummary.classList.add("hidden");
 }
 
-function clearFileMessages() {
+function hideError() {
+  if (!fileError) return;
+
   fileError.textContent = "";
   fileError.classList.add("hidden");
-  fileSummary.classList.add("hidden");
 }
 
-function normalizeValue(value) {
-  if (value === null || value === undefined) {
-    return "";
+function updateSteps(stepNumber) {
+  appState.currentStep = stepNumber;
+
+  stepItems.forEach((item) => {
+    const itemStep = Number(item.dataset.step);
+
+    item.classList.remove(
+      "border-stone-900",
+      "bg-stone-900",
+      "text-white",
+      "border-stone-200",
+      "bg-white",
+      "text-stone-400",
+    );
+
+    if (itemStep === stepNumber) {
+      item.classList.add("border-stone-900", "bg-stone-900", "text-white");
+    } else if (itemStep < stepNumber) {
+      item.classList.add("border-stone-200", "bg-white", "text-stone-900");
+    } else {
+      item.classList.add("border-stone-200", "bg-white", "text-stone-400");
+    }
+  });
+
+  if (mobileStepLabel) {
+    mobileStepLabel.textContent = `Langkah ${stepNumber} dari 3`;
   }
-
-  return String(value).trim();
 }
 
-function normalizeHeader(header) {
-  return normalizeValue(header)
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/[_-]/g, " ");
-}
+function updateDestination(mode) {
+  appState.destinationMode = mode;
 
-function findColumn(row, possibleNames) {
-  const rowKeys = Object.keys(row);
+  destinationCards.forEach((card) => {
+    const isSelected = card.dataset.destination === mode;
 
-  for (const key of rowKeys) {
-    const normalizedKey = normalizeHeader(key);
+    card.classList.toggle("border-stone-900", isSelected);
+    card.classList.toggle("bg-stone-50", isSelected);
+    card.classList.toggle("border-stone-200", !isSelected);
+  });
 
-    if (possibleNames.includes(normalizedKey)) {
-      return key;
+  if (destinationHelp) {
+    if (mode === "new") {
+      destinationHelp.textContent =
+        "Aplikasi akan membantu membuat Google Form baru dari kumpulan soal.";
+    } else if (mode === "existing") {
+      destinationHelp.textContent =
+        "Soal akan ditambahkan ke Google Form yang sudah ada tanpa menghapus soal lama.";
+    } else {
+      destinationHelp.textContent =
+        "Pilih tujuan Google Form untuk melanjutkan.";
     }
   }
 
-  return null;
+  updateContinueButton();
 }
 
-function convertRowsToQuestions(rows) {
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return [];
-  }
+function updateContinueButton() {
+  if (!continueButton) return;
 
-  const firstRow = rows[0];
+  const canContinue =
+    appState.questions.length > 0 && Boolean(appState.destinationMode);
 
-  const questionColumn = findColumn(firstRow, [
-    "question",
-    "pertanyaan",
-    "soal",
-    "questions",
-  ]);
+  continueButton.disabled = !canContinue;
+  continueButton.classList.toggle("opacity-50", !canContinue);
+  continueButton.classList.toggle("cursor-not-allowed", !canContinue);
+}
 
-  const optionAColumn = findColumn(firstRow, [
-    "option 1",
-    "option a",
-    "opsi 1",
-    "opsi a",
-    "a",
-  ]);
+function normalizeHeader(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
 
-  const optionBColumn = findColumn(firstRow, [
-    "option 2",
-    "option b",
-    "opsi 2",
-    "opsi b",
-    "b",
-  ]);
+function getValue(row, possibleHeaders) {
+  const rowKeys = Object.keys(row);
 
-  const optionCColumn = findColumn(firstRow, [
-    "option 3",
-    "option c",
-    "opsi 3",
-    "opsi c",
-    "c",
-  ]);
+  for (const header of possibleHeaders) {
+    const normalizedTarget = normalizeHeader(header);
 
-  const optionDColumn = findColumn(firstRow, [
-    "option 4",
-    "option d",
-    "opsi 4",
-    "opsi d",
-    "d",
-  ]);
-
-  const answerColumn = findColumn(firstRow, [
-    "answer",
-    "correct answer",
-    "jawaban",
-    "kunci jawaban",
-  ]);
-
-  if (!questionColumn) {
-    throw new Error(
-      "Kolom pertanyaan tidak ditemukan. " +
-        "Gunakan nama kolom Question, Pertanyaan, atau Soal.",
+    const matchingKey = rowKeys.find(
+      (key) => normalizeHeader(key) === normalizedTarget,
     );
+
+    if (matchingKey) {
+      return row[matchingKey];
+    }
   }
 
+  return "";
+}
+
+function cleanValue(value) {
+  return String(value ?? "").trim();
+}
+
+function extractQuestions(rows) {
   return rows
     .map((row, index) => {
-      const questionText = normalizeValue(row[questionColumn]);
+      const question = cleanValue(
+        getValue(row, [
+          "Question",
+          "Pertanyaan",
+          "Soal",
+          "question",
+          "pertanyaan",
+          "soal",
+        ]),
+      );
 
-      if (!questionText) {
+      const options = [
+        getValue(row, ["Option 1", "Pilihan 1", "A"]),
+        getValue(row, ["Option 2", "Pilihan 2", "B"]),
+        getValue(row, ["Option 3", "Pilihan 3", "C"]),
+        getValue(row, ["Option 4", "Pilihan 4", "D"]),
+      ]
+        .map(cleanValue)
+        .filter(Boolean);
+
+      const answer = cleanValue(
+        getValue(row, [
+          "Answer",
+          "Correct Answer",
+          "Jawaban",
+          "Kunci Jawaban",
+          "answer",
+          "correct answer",
+          "jawaban",
+          "kunci jawaban",
+        ]),
+      );
+
+      if (!question) {
         return null;
       }
 
-      const options = [
-        normalizeValue(optionAColumn ? row[optionAColumn] : ""),
-        normalizeValue(optionBColumn ? row[optionBColumn] : ""),
-        normalizeValue(optionCColumn ? row[optionCColumn] : ""),
-        normalizeValue(optionDColumn ? row[optionDColumn] : ""),
-      ].filter(Boolean);
-
-      const answer = answerColumn ? normalizeValue(row[answerColumn]) : "";
-
       return {
         number: index + 1,
-        question: questionText,
+        question,
         options,
         answer,
         type: options.length > 0 ? "multiple_choice" : "paragraph",
@@ -218,7 +204,97 @@ function convertRowsToQuestions(rows) {
     .filter(Boolean);
 }
 
-function getQuestionTypeSummary(questions) {
+function getQuestionTypeLabel(question) {
+  if (question.type === "multiple_choice") {
+    return "Pilihan ganda";
+  }
+
+  return "Uraian";
+}
+
+function renderPreview() {
+  if (!previewSection || !previewList || !previewCount) {
+    return;
+  }
+
+  previewList.innerHTML = "";
+  previewCount.textContent = `${appState.questions.length} soal`;
+
+  if (appState.questions.length === 0) {
+    previewSection.classList.add("hidden");
+    return;
+  }
+
+  previewSection.classList.remove("hidden");
+
+  appState.questions.forEach((question) => {
+    const card = document.createElement("article");
+
+    card.className =
+      "rounded-2xl border border-stone-200 bg-white p-5 shadow-sm";
+
+    const header = document.createElement("div");
+    header.className = "mb-3 flex flex-wrap items-center justify-between gap-2";
+
+    const number = document.createElement("span");
+    number.className =
+      "text-xs font-semibold uppercase tracking-widest text-stone-400";
+    number.textContent = `Soal ${question.number}`;
+
+    const type = document.createElement("span");
+    type.className =
+      "rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-600";
+    type.textContent = getQuestionTypeLabel(question);
+
+    header.append(number, type);
+
+    const questionText = document.createElement("p");
+    questionText.className = "text-base font-medium leading-7 text-stone-900";
+    questionText.textContent = question.question;
+
+    card.append(header, questionText);
+
+    if (question.options.length > 0) {
+      const optionList = document.createElement("ol");
+
+      optionList.className = "mt-4 grid gap-2 sm:grid-cols-2";
+
+      question.options.forEach((option, optionIndex) => {
+        const optionItem = document.createElement("li");
+
+        optionItem.className =
+          "rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700";
+
+        const letter = String.fromCharCode(65 + optionIndex);
+
+        optionItem.textContent = `${letter}. ${option}`;
+
+        optionList.appendChild(optionItem);
+      });
+
+      card.appendChild(optionList);
+    }
+
+    if (question.answer) {
+      const answer = document.createElement("p");
+
+      answer.className =
+        "mt-4 border-t border-stone-100 pt-3 text-xs text-stone-500";
+
+      answer.textContent = `Kunci jawaban: ${question.answer}`;
+
+      card.appendChild(answer);
+    }
+
+    previewList.appendChild(card);
+  });
+}
+
+function updateFileSummary(file, questions) {
+  if (!fileSummary || !fileSummaryName || !fileSummaryCount) {
+    return;
+  }
+
   const multipleChoiceCount = questions.filter(
     (question) => question.type === "multiple_choice",
   ).length;
@@ -227,167 +303,136 @@ function getQuestionTypeSummary(questions) {
     (question) => question.type === "paragraph",
   ).length;
 
-  return {
-    multipleChoiceCount,
-    paragraphCount,
-  };
-}
-
-function showFileSummary(file, questions) {
-  const summary = getQuestionTypeSummary(questions);
-
   fileSummaryName.textContent = file.name;
 
   fileSummaryCount.textContent =
     `${questions.length} soal ditemukan · ` +
-    `${summary.multipleChoiceCount} pilihan ganda · ` +
-    `${summary.paragraphCount} uraian`;
+    `${multipleChoiceCount} pilihan ganda · ` +
+    `${paragraphCount} uraian`;
 
   fileSummary.classList.remove("hidden");
 }
 
-async function readExcelFile(file) {
-  clearFileMessages();
-
+async function readQuestionFile(file) {
   if (!window.XLSX) {
-    showFileError(
-      "Library pembaca Excel belum berhasil dimuat. " +
-        "Periksa koneksi internet lalu muat ulang halaman.",
+    throw new Error(
+      "Library pembaca Excel belum tersedia. Pastikan script SheetJS sudah ditambahkan.",
     );
-
-    return;
   }
 
-  const validExtensions = [".xlsx", ".xls", ".csv"];
+  const extension = file.name.split(".").pop().toLowerCase();
 
-  const fileNameLower = file.name.toLowerCase();
-
-  const isValidExtension = validExtensions.some((extension) =>
-    fileNameLower.endsWith(extension),
-  );
-
-  if (!isValidExtension) {
-    showFileError(
-      "Format file belum didukung. " + "Gunakan file .xlsx, .xls, atau .csv.",
+  if (!["xlsx", "xls", "csv"].includes(extension)) {
+    throw new Error(
+      "Format file belum didukung. Gunakan file .xlsx, .xls, atau .csv.",
     );
-
-    return;
   }
+
+  const buffer = await file.arrayBuffer();
+
+  const workbook = XLSX.read(buffer, {
+    type: "array",
+  });
+
+  const firstSheetName = workbook.SheetNames[0];
+
+  if (!firstSheetName) {
+    throw new Error("File tidak memiliki sheet yang bisa dibaca.");
+  }
+
+  const worksheet = workbook.Sheets[firstSheetName];
+
+  const rows = XLSX.utils.sheet_to_json(worksheet, {
+    defval: "",
+  });
+
+  if (rows.length === 0) {
+    throw new Error("Sheet masih kosong.");
+  }
+
+  const questions = extractQuestions(rows);
+
+  if (questions.length === 0) {
+    throw new Error(
+      "Kolom soal tidak ditemukan. Gunakan header seperti Question, Soal, atau Pertanyaan.",
+    );
+  }
+
+  return questions;
+}
+
+fileInput?.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+
+  if (!file) return;
+
+  appState.selectedFile = file;
+  appState.questions = [];
+
+  hideError();
+  previewSection?.classList.add("hidden");
+
+  if (fileNameElement) {
+    fileNameElement.textContent = file.name;
+  }
+
+  setStatus("Sedang membaca file...", "default");
 
   try {
-    statusMessage.textContent = "Sedang membaca file soal...";
+    const questions = await readQuestionFile(file);
 
-    const arrayBuffer = await file.arrayBuffer();
-
-    const workbook = XLSX.read(arrayBuffer, {
-      type: "array",
-    });
-
-    const firstSheetName = workbook.SheetNames[0];
-
-    if (!firstSheetName) {
-      throw new Error("File tidak memiliki sheet yang dapat dibaca.");
-    }
-
-    const firstSheet = workbook.Sheets[firstSheetName];
-
-    const rows = XLSX.utils.sheet_to_json(firstSheet, {
-      defval: "",
-      raw: false,
-    });
-
-    const questions = convertRowsToQuestions(rows);
-
-    if (questions.length === 0) {
-      throw new Error(
-        "Tidak ada soal yang berhasil ditemukan. " +
-          "Pastikan sheet memiliki kolom Question atau Soal.",
-      );
-    }
-
-    appState.selectedFile = file;
-    appState.workbookName = firstSheetName;
     appState.questions = questions;
 
-    showFileSummary(file, questions);
+    updateFileSummary(file, questions);
+    renderPreview();
     updateContinueButton();
 
-    console.log("Workbook:", workbook);
-    console.log("Sheet:", firstSheetName);
-    console.log("Questions:", questions);
+    setStatus(`${questions.length} soal berhasil dibaca.`, "success");
   } catch (error) {
     console.error(error);
 
-    appState.questions = [];
+    if (fileSummary) {
+      fileSummary.classList.add("hidden");
+    }
 
-    showFileError(
-      error.message || "File tidak dapat dibaca. Periksa format Excel kamu.",
-    );
-
+    showError(error.message || "File gagal dibaca.");
+    setStatus("File belum berhasil dibaca.", "error");
     updateContinueButton();
   }
-}
+});
 
-function selectDestination(destination) {
-  appState.destinationMode = destination;
+destinationCards.forEach((card) => {
+  card.addEventListener("click", () => {
+    const destination = card.dataset.destination;
 
-  destinationOptions.forEach((option) => {
-    const isSelected = option.dataset.destination === destination;
+    if (!destination) return;
 
-    option.setAttribute("aria-pressed", String(isSelected));
+    updateDestination(destination);
   });
+});
 
-  destinationHelp.innerHTML = destinationDescriptions[destination];
-
-  destinationHelp.classList.remove("hidden");
-
-  updateContinueButton();
-}
-
-fileInput.addEventListener("change", (event) => {
-  const selectedFile = event.target.files[0];
-
-  if (!selectedFile) {
+continueButton?.addEventListener("click", () => {
+  if (appState.questions.length === 0) {
+    setStatus("Upload file soal terlebih dahulu.", "error");
     return;
   }
 
-  fileName.textContent = `File dipilih: ${selectedFile.name}`;
-
-  fileName.classList.remove("hidden");
-
-  readExcelFile(selectedFile);
-});
-
-destinationOptions.forEach((option) => {
-  option.addEventListener("click", () => {
-    selectDestination(option.dataset.destination);
-  });
-});
-
-continueButton.addEventListener("click", () => {
-  if (
-    !appState.selectedFile ||
-    !appState.destinationMode ||
-    appState.questions.length === 0
-  ) {
+  if (!appState.destinationMode) {
+    setStatus("Pilih tujuan Google Form terlebih dahulu.", "error");
     return;
   }
 
-  appState.currentStep = 2;
-  updateSteps();
+  updateSteps(2);
 
-  const destinationText =
-    appState.destinationMode === "create_new"
-      ? "membuat Google Form baru"
-      : "menambahkan soal ke Google Form yang sudah ada";
+  setStatus(
+    appState.destinationMode === "new"
+      ? "Mode Google Form baru dipilih."
+      : "Mode Google Form yang sudah ada dipilih.",
+    "success",
+  );
 
-  statusMessage.textContent = `Tahap berikutnya adalah ${destinationText}.`;
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth",
-  });
+  console.log("Current app state:", appState);
 });
 
-updateSteps();
+updateSteps(1);
 updateContinueButton();
