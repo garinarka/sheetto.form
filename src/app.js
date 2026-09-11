@@ -126,6 +126,8 @@ function updateDestination(mode) {
     card.classList.toggle("border-stone-900", isSelected);
     card.classList.toggle("bg-stone-50", isSelected);
     card.classList.toggle("border-stone-200", !isSelected);
+
+    card.setAttribute("aria-pressed", String(isSelected));
   });
 
   if (destinationHelp) {
@@ -215,12 +217,25 @@ function cleanValue(value) {
 function validateQuestions(questions) {
   const errors = [];
 
-  questions.forEach((question, index) => {
-    const rowNumber = index + 2;
+  questions.forEach((question) => {
+    const rowNumber = question.number;
+    const hasAnyContent =
+      question.question || question.options.length > 0 || question.answer;
+
+    if (!hasAnyContent) {
+      errors.push(`Baris ${rowNumber}: baris Excel kosong.`);
+      return;
+    }
 
     if (!question.question.trim()) {
-      errors.push(`Baris ${rowNumber}: pertanyaan kosong.`);
+      errors.push(`Baris ${rowNumber}: kolom Question/Pertanyaan kosong.`);
       return;
+    }
+
+    if (question.hasOptionGap) {
+      errors.push(
+        `Baris ${rowNumber}: pilihan tidak boleh bolong. Isi pilihan secara berurutan dari Option 1.`,
+      );
     }
 
     if (question.type === "multiple_choice") {
@@ -256,54 +271,55 @@ function validateQuestions(questions) {
 }
 
 function extractQuestions(rows) {
-  return rows
-    .map((row, index) => {
-      const question = cleanValue(
-        getValue(row, [
-          "Question",
-          "Pertanyaan",
-          "Soal",
-          "question",
-          "pertanyaan",
-          "soal",
-        ]),
-      );
+  return rows.map((row, index) => {
+    const question = cleanValue(
+      getValue(row, [
+        "Question",
+        "Pertanyaan",
+        "Soal",
+        "question",
+        "pertanyaan",
+        "soal",
+      ]),
+    );
 
-      const options = [
-        getValue(row, ["Option 1", "Pilihan 1", "A"]),
-        getValue(row, ["Option 2", "Pilihan 2", "B"]),
-        getValue(row, ["Option 3", "Pilihan 3", "C"]),
-        getValue(row, ["Option 4", "Pilihan 4", "D"]),
-      ]
-        .map(cleanValue)
-        .filter(Boolean);
+    const options = [
+      getValue(row, ["Option 1", "Pilihan 1", "A"]),
+      getValue(row, ["Option 2", "Pilihan 2", "B"]),
+      getValue(row, ["Option 3", "Pilihan 3", "C"]),
+      getValue(row, ["Option 4", "Pilihan 4", "D"]),
+    ].map(cleanValue);
 
-      const answer = cleanValue(
-        getValue(row, [
-          "Answer",
-          "Correct Answer",
-          "Jawaban",
-          "Kunci Jawaban",
-          "answer",
-          "correct answer",
-          "jawaban",
-          "kunci jawaban",
-        ]),
-      );
+    const filledOptions = options.filter(Boolean);
 
-      if (!question) {
-        return null;
-      }
+    const firstEmptyOptionIndex = options.findIndex((option) => !option);
 
-      return {
-        number: index + 1,
-        question,
-        options,
-        answer,
-        type: options.length > 0 ? "multiple_choice" : "paragraph",
-      };
-    })
-    .filter(Boolean);
+    const hasOptionAfterEmpty =
+      firstEmptyOptionIndex !== -1 &&
+      options.slice(firstEmptyOptionIndex + 1).some(Boolean);
+
+    const answer = cleanValue(
+      getValue(row, [
+        "Answer",
+        "Correct Answer",
+        "Jawaban",
+        "Kunci Jawaban",
+        "answer",
+        "correct answer",
+        "jawaban",
+        "kunci jawaban",
+      ]),
+    );
+
+    return {
+      number: index + 2,
+      question,
+      options: filledOptions,
+      answer,
+      type: filledOptions.length > 0 ? "multiple_choice" : "paragraph",
+      hasOptionGap: hasOptionAfterEmpty,
+    };
+  });
 }
 
 function getQuestionTypeLabel(question) {
@@ -566,6 +582,7 @@ fileInput?.addEventListener("change", async (event) => {
 
   if (fileNameElement) {
     fileNameElement.textContent = file.name;
+    fileNameElement.classList.remove("hidden");
   }
 
   setStatus("Sedang membaca file...", "default");
@@ -591,13 +608,20 @@ fileInput?.addEventListener("change", async (event) => {
     setStatus(`${questions.length} soal berhasil dibaca.`, "success");
   } catch (error) {
     console.error(error);
+    appState.selectedFile = null;
+    appState.questions = [];
 
     if (fileSummary) {
       fileSummary.classList.add("hidden");
     }
 
     showError(error.message || "File gagal dibaca.");
-    setStatus("File belum berhasil dibaca.", "error");
+    setStatus(
+      error.message?.startsWith("File memiliki masalah")
+        ? "File terbaca, tetapi ada kesalahan pada data."
+        : "File belum berhasil dibaca.",
+      "error",
+    );
     updateContinueButton();
   }
 });
@@ -638,8 +662,13 @@ async function googleFormsRequest(url, options = {}) {
 }
 
 function extractFormId(value) {
-  const match = String(value || "").match(/\/forms\/d\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : String(value || "").trim();
+  const input = String(value || "").trim();
+
+  const match = input.match(
+    /^https:\/\/docs\.google\.com\/forms\/d\/([a-zA-Z0-9_-]+)(?:\/.*)?$/,
+  );
+
+  return match ? match[1] : null;
 }
 
 function buildBatchRequests() {
@@ -679,7 +708,9 @@ function buildBatchRequests() {
       };
       if (settings.isQuiz && question.answer) {
         const answerIndex = question.options.findIndex(
-          (option) => option.toLowerCase() === question.answer.toLowerCase(),
+          (option) =>
+            option.toLowerCase().trim() ===
+            question.answer.toLowerCase().trim(),
         );
         if (answerIndex >= 0) {
           item.questionItem.question.grading = {
@@ -776,6 +807,14 @@ async function processGoogleForm() {
     button.textContent = "Sedang memproses...";
   }
 
+  const createFormTitle = document.querySelector("#create-form-title");
+  if (createFormTitle) {
+    createFormTitle.textContent =
+      appState.destinationMode === "existing"
+        ? "Tambahkan soal ke Google Form"
+        : "Buat Google Form";
+  }
+
   try {
     const result =
       appState.destinationMode === "new"
@@ -790,7 +829,10 @@ async function processGoogleForm() {
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = "Buat Google Form sekarang";
+      button.textContent =
+        appState.destinationMode === "existing"
+          ? "Tambahkan soal sekarang"
+          : "Buat Google Form sekarang";
     }
   }
 }
@@ -806,15 +848,21 @@ continueButton?.addEventListener("click", () => {
   }
 
   const settings = collectFormSettings();
+
   if (!settings.title && appState.destinationMode === "new") {
     setStatus("Isi judul Google Form terlebih dahulu.", "error");
     formTitleInput?.focus();
     return;
   }
-  if (appState.destinationMode === "existing" && !settings.existingFormUrl) {
-    setStatus("Masukkan link Google Form yang sudah ada.", "error");
-    existingFormUrlInput?.focus();
-    return;
+
+  if (appState.destinationMode === "existing") {
+    const formId = extractFormId(settings.existingFormUrl);
+
+    if (!formId) {
+      setStatus("Masukkan link Google Form yang valid.", "error");
+      existingFormUrlInput?.focus();
+      return;
+    }
   }
 
   updateSteps(3);
