@@ -3,6 +3,13 @@ const appState = {
   destinationMode: null,
   currentStep: 1,
   questions: [],
+  formSettings: {
+    title: "",
+    description: "",
+    isQuiz: true,
+    required: true,
+    existingFormUrl: "",
+  },
 };
 
 const fileInput = document.querySelector("#question-file");
@@ -22,6 +29,15 @@ const previewCount = document.querySelector("#preview-count");
 
 const stepItems = document.querySelectorAll(".step-item");
 const destinationCards = document.querySelectorAll(".destination-card");
+
+const formSettingsSection = document.querySelector("#form-settings-section");
+
+const formTitleInput = document.querySelector("#form-title");
+const formDescriptionInput = document.querySelector("#form-description");
+const formIsQuizInput = document.querySelector("#form-is-quiz");
+const formRequiredInput = document.querySelector("#form-required");
+const existingFormSettings = document.querySelector("#existing-form-settings");
+const existingFormUrlInput = document.querySelector("#existing-form-url");
 
 function setStatus(message, type = "default") {
   if (!statusMessage) return;
@@ -110,7 +126,35 @@ function updateDestination(mode) {
     }
   }
 
+  updateFormSettingsVisibility();
   updateContinueButton();
+}
+
+function updateFormSettingsVisibility() {
+  if (!formSettingsSection) return;
+
+  const shouldShow = appState.questions.length > 0;
+
+  formSettingsSection.classList.toggle("hidden", !shouldShow);
+
+  if (existingFormSettings) {
+    existingFormSettings.classList.toggle(
+      "hidden",
+      appState.destinationMode !== "existing",
+    );
+  }
+}
+
+function collectFormSettings() {
+  appState.formSettings = {
+    title: formTitleInput?.value.trim() || "",
+    description: formDescriptionInput?.value.trim() || "",
+    isQuiz: Boolean(formIsQuizInput?.checked),
+    required: Boolean(formRequiredInput?.checked),
+    existingFormUrl: existingFormUrlInput?.value.trim() || "",
+  };
+
+  return appState.formSettings;
 }
 
 function updateContinueButton() {
@@ -385,6 +429,7 @@ fileInput?.addEventListener("change", async (event) => {
 
     updateFileSummary(file, questions);
     renderPreview();
+    updateFormSettingsVisibility();
     updateContinueButton();
 
     setStatus(`${questions.length} soal berhasil dibaca.`, "success");
@@ -422,17 +467,39 @@ continueButton?.addEventListener("click", () => {
     return;
   }
 
-  updateSteps(2);
+  const settings = collectFormSettings();
+
+  if (!settings.title) {
+    setStatus("Isi judul Google Form terlebih dahulu.", "error");
+    formTitleInput?.focus();
+    return;
+  }
+
+  if (appState.destinationMode === "existing" && !settings.existingFormUrl) {
+    setStatus("Masukkan link Google Form yang sudah ada.", "error");
+    existingFormUrlInput?.focus();
+    return;
+  }
+
+  updateSteps(3);
 
   setStatus(
-    appState.destinationMode === "new"
-      ? "Mode Google Form baru dipilih."
-      : "Mode Google Form yang sudah ada dipilih.",
+    "Pengaturan form berhasil disimpan. Integrasi Google Forms akan dibuat pada tahap berikutnya.",
     "success",
   );
 
-  console.log("Current app state:", appState);
+  console.log("Final app state:", appState);
 });
 
 updateSteps(1);
 updateContinueButton();
+
+formTitleInput?.addEventListener("input", collectFormSettings);
+
+formDescriptionInput?.addEventListener("input", collectFormSettings);
+
+formIsQuizInput?.addEventListener("change", collectFormSettings);
+
+formRequiredInput?.addEventListener("change", collectFormSettings);
+
+existingFormUrlInput?.addEventListener("input", collectFormSettings);

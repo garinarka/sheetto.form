@@ -174,7 +174,7 @@
                     </div>
 
                     <div class="mt-5 grid gap-3">
-                        <button type="button" class="destination-card" data-destination="create_new"
+                        <button type="button" class="destination-card" data-destination="new"
                             aria-pressed="false">
                             <div class="flex items-start gap-3">
                                 <span class="destination-icon" aria-hidden="true">
@@ -194,7 +194,7 @@
                             </div>
                         </button>
 
-                        <button type="button" class="destination-card" data-destination="add_existing"
+                        <button type="button" class="destination-card" data-destination="existing"
                             aria-pressed="false">
                             <div class="flex items-start gap-3">
                                 <span class="destination-icon" aria-hidden="true">
@@ -243,6 +243,91 @@
                     </div>
 
                     <div id="preview-list" class="space-y-4"></div>
+                </section>
+
+                <section id="form-settings-section" class="mt-8 hidden">
+                    <div class="mb-5">
+                        <p class="text-xs font-semibold uppercase tracking-widest text-stone-500">
+                            Pengaturan form
+                        </p>
+
+                        <h2 class="mt-1 text-xl font-semibold text-stone-900">
+                            Atur Google Form kamu
+                        </h2>
+
+                        <p class="mt-1 text-sm leading-6 text-stone-500">
+                            Informasi ini akan digunakan saat form dibuat atau soal ditambahkan.
+                        </p>
+                    </div>
+
+                    <div class="space-y-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+                        <div>
+                            <label for="form-title" class="mb-2 block text-sm font-medium text-stone-700">
+                                Judul Google Form
+                            </label>
+
+                            <input id="form-title" type="text" placeholder="Contoh: Penilaian Seni Tari Kelas VIII"
+                                class="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-900" />
+                        </div>
+
+                        <div>
+                            <label for="form-description" class="mb-2 block text-sm font-medium text-stone-700">
+                                Deskripsi form
+                            </label>
+
+                            <textarea id="form-description" rows="4"
+                                placeholder="Contoh: Kerjakan semua soal dengan teliti."
+                                class="w-full resize-y rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-900"></textarea>
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <label
+                                class="flex cursor-pointer items-start gap-3 rounded-xl border border-stone-200 bg-stone-50 p-4">
+                                <input id="form-is-quiz" type="checkbox" checked
+                                    class="mt-1 h-4 w-4 accent-stone-900" />
+
+                                <span>
+                                    <span class="block text-sm font-medium text-stone-900">
+                                        Jadikan mode kuis
+                                    </span>
+
+                                    <span class="mt-1 block text-xs leading-5 text-stone-500">
+                                        Form akan menggunakan pengaturan kuis dan kunci jawaban.
+                                    </span>
+                                </span>
+                            </label>
+
+                            <label
+                                class="flex cursor-pointer items-start gap-3 rounded-xl border border-stone-200 bg-stone-50 p-4">
+                                <input id="form-required" type="checkbox" checked
+                                    class="mt-1 h-4 w-4 accent-stone-900" />
+
+                                <span>
+                                    <span class="block text-sm font-medium text-stone-900">
+                                        Semua soal wajib diisi
+                                    </span>
+
+                                    <span class="mt-1 block text-xs leading-5 text-stone-500">
+                                        Setiap pertanyaan akan ditandai sebagai pertanyaan wajib.
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div id="existing-form-settings" class="hidden border-t border-stone-100 pt-5">
+                            <label for="existing-form-url" class="mb-2 block text-sm font-medium text-stone-700">
+                                Link Google Form yang sudah ada
+                            </label>
+
+                            <input id="existing-form-url" type="url" placeholder="https://docs.google.com/forms/d/..."
+                                class="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-900" />
+
+                            <p class="mt-2 text-xs leading-5 text-stone-500">
+                                Untuk sementara link ini hanya disimpan sebagai pengaturan.
+                                Integrasi Google Forms API akan dibuat pada tahap berikutnya.
+                            </p>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Actions -->
