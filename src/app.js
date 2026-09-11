@@ -503,3 +503,7 @@ formIsQuizInput?.addEventListener("change", collectFormSettings);
 formRequiredInput?.addEventListener("change", collectFormSettings);
 
 existingFormUrlInput?.addEventListener("input", collectFormSettings);
+
+console.log("Google config loaded:", {
+  hasClientId: Boolean(window.GOOGLE_CONFIG?.clientId),
+});
