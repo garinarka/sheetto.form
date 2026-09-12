@@ -114,6 +114,7 @@ function updateDestination(mode) {
   }
 
   updateFormSettingsVisibility();
+  updateCreateFormCopy();
   updateWizardButtons();
 }
 
@@ -745,6 +746,40 @@ async function appendToExistingGoogleForm() {
   };
 }
 
+function getDestinationCopy() {
+  if (appState.destinationMode === "existing") {
+    return {
+      title: "Tambahkan soal ke Google Form",
+      description:
+        "Klik tombol ini untuk menambahkan soal ke Google Form yang sudah ada. Soal lama tidak akan dihapus.",
+      buttonLabel: "Tambahkan soal sekarang",
+    };
+  }
+
+  return {
+    title: "Buat Google Form",
+    description:
+      "Setelah terhubung ke Google, klik tombol ini untuk membuat Form baru dan memasukkan soal.",
+    buttonLabel: "Buat Google Form sekarang",
+  };
+}
+
+function updateCreateFormCopy() {
+  const copy = getDestinationCopy();
+
+  const createFormTitle = document.querySelector("#process-form-title");
+  if (createFormTitle) createFormTitle.textContent = copy.title;
+
+  const createFormDescription = document.querySelector(
+    "#create-form-description",
+  );
+  if (createFormDescription)
+    createFormDescription.textContent = copy.description;
+
+  const button = document.querySelector("#create-google-form-button");
+  if (button && !button.disabled) button.textContent = copy.buttonLabel;
+}
+
 function showCreatedFormResult(result) {
   const section = document.querySelector("#create-form-section");
   const resultBox = document.querySelector("#created-form-result");
@@ -767,13 +802,7 @@ async function processGoogleForm() {
     button.textContent = "Sedang memproses...";
   }
 
-  const createFormTitle = document.querySelector("#process-form-title");
-  if (createFormTitle) {
-    createFormTitle.textContent =
-      appState.destinationMode === "existing"
-        ? "Tambahkan soal ke Google Form"
-        : "Buat Google Form";
-  }
+  updateCreateFormCopy();
 
   try {
     const result =
@@ -789,11 +818,8 @@ async function processGoogleForm() {
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent =
-        appState.destinationMode === "existing"
-          ? "Tambahkan soal sekarang"
-          : "Buat Google Form sekarang";
     }
+    updateCreateFormCopy();
   }
 }
 
