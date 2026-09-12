@@ -1,7 +1,6 @@
 const appState = {
   selectedFile: null,
   destinationMode: null,
-  currentStep: 1,
   questions: [],
   google: {
     accessToken: null,
@@ -88,35 +87,6 @@ function hideError() {
   fileError.classList.add("hidden");
 }
 
-function updateSteps(stepNumber) {
-  appState.currentStep = stepNumber;
-
-  stepItems.forEach((item) => {
-    const itemStep = Number(item.dataset.step);
-
-    item.classList.remove(
-      "border-stone-900",
-      "bg-stone-900",
-      "text-white",
-      "border-stone-200",
-      "bg-white",
-      "text-stone-400",
-    );
-
-    if (itemStep === stepNumber) {
-      item.classList.add("border-stone-900", "bg-stone-900", "text-white");
-    } else if (itemStep < stepNumber) {
-      item.classList.add("border-stone-200", "bg-white", "text-stone-900");
-    } else {
-      item.classList.add("border-stone-200", "bg-white", "text-stone-400");
-    }
-  });
-
-  if (mobileStepLabel) {
-    mobileStepLabel.textContent = `Langkah ${stepNumber} dari 3`;
-  }
-}
-
 function updateDestination(mode) {
   appState.destinationMode = mode;
 
@@ -144,7 +114,7 @@ function updateDestination(mode) {
   }
 
   updateFormSettingsVisibility();
-  updateContinueButton();
+  updateWizardButtons();
 }
 
 function updateFormSettingsVisibility() {
@@ -172,17 +142,6 @@ function collectFormSettings() {
   };
 
   return appState.formSettings;
-}
-
-function updateContinueButton() {
-  if (!continueButton) return;
-
-  const canContinue =
-    appState.questions.length > 0 && Boolean(appState.destinationMode);
-
-  continueButton.disabled = !canContinue;
-  continueButton.classList.toggle("opacity-50", !canContinue);
-  continueButton.classList.toggle("cursor-not-allowed", !canContinue);
 }
 
 function normalizeHeader(value) {
@@ -509,6 +468,7 @@ function connectToGoogle() {
       appState.google.connected = true;
 
       updateGoogleConnectionUI();
+      updateWizardButtons();
 
       setStatus("Berhasil terhubung ke Google.", "success");
 
@@ -603,7 +563,7 @@ fileInput?.addEventListener("change", async (event) => {
     updateFileSummary(file, questions);
     renderPreview();
     updateFormSettingsVisibility();
-    updateContinueButton();
+    updateWizardButtons();
 
     setStatus(`${questions.length} soal berhasil dibaca.`, "success");
   } catch (error) {
@@ -622,7 +582,7 @@ fileInput?.addEventListener("change", async (event) => {
         : "File belum berhasil dibaca.",
       "error",
     );
-    updateContinueButton();
+    updateWizardButtons();
   }
 });
 
@@ -886,8 +846,6 @@ document
   .querySelector("#create-google-form-button")
   ?.addEventListener("click", processGoogleForm);
 
-updateSteps(1);
-updateContinueButton();
 updateGoogleConnectionUI();
 
 // Guide modal
@@ -1177,51 +1135,6 @@ function goToPreviousStep() {
 
 continueButton?.addEventListener("click", goToNextStep);
 backButton?.addEventListener("click", goToPreviousStep);
-
-destinationButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    window.setTimeout(updateWizardButtons, 0);
-  });
-});
-
-questionFileInput?.addEventListener("change", () => {
-  window.setTimeout(updateWizardButtons, 0);
-});
-
 existingFormUrlInput?.addEventListener("input", updateWizardButtons);
-
-document
-  .getElementById("google-connect-button")
-  ?.addEventListener("click", () => {
-    window.setTimeout(updateWizardButtons, 500);
-    window.setTimeout(updateWizardButtons, 1500);
-  });
-
-const wizardObserver = new MutationObserver(() => {
-  updateWizardButtons();
-});
-
-if (fileError) {
-  wizardObserver.observe(fileError, {
-    attributes: true,
-    childList: true,
-    subtree: true,
-  });
-}
-
-if (fileSummary) {
-  wizardObserver.observe(fileSummary, {
-    attributes: true,
-    childList: true,
-    subtree: true,
-  });
-}
-
-if (previewList) {
-  wizardObserver.observe(previewList, {
-    childList: true,
-    subtree: true,
-  });
-}
 
 showStep(1);
