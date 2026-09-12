@@ -807,7 +807,7 @@ async function processGoogleForm() {
     button.textContent = "Sedang memproses...";
   }
 
-  const createFormTitle = document.querySelector("#create-form-title");
+  const createFormTitle = document.querySelector("#process-form-title");
   if (createFormTitle) {
     createFormTitle.textContent =
       appState.destinationMode === "existing"
@@ -930,16 +930,6 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !guideModal?.classList.contains("hidden")) {
     closeGuideModal();
   }
-});
-
-// Welcome alert
-window.addEventListener("load", () => {
-  window.alert(
-    "Selamat datang di Sheet2Form!\n\n" +
-      "Sebelum mulai, disarankan membaca Panduan terlebih dahulu " +
-      "agar proses import soal ke Google Forms berjalan lancar." +
-      "\n\nPanduan dapat dibuka dengan menekan tombol 'Panduan' di pojok kanan atas.",
-  );
 });
 
 const wizardState = {
