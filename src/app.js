@@ -911,19 +911,7 @@ const stepNames = {
 };
 
 function isGoogleConnected() {
-  const statusElement = document.getElementById("google-connection-status");
-
-  if (!statusElement) {
-    return false;
-  }
-
-  const statusText = statusElement.textContent.trim().toLowerCase();
-
-  return (
-    statusText.includes("terhubung") &&
-    !statusText.includes("belum") &&
-    !statusText.includes("gagal")
-  );
+  return appState.google.connected === true;
 }
 
 function hasSelectedFile() {
@@ -935,15 +923,9 @@ function hasSelectedFile() {
 }
 
 function hasValidFile() {
-  if (!hasSelectedFile()) {
-    return false;
-  }
-
-  if (!fileError) {
-    return true;
-  }
-
-  return fileError.classList.contains("hidden");
+  if (!hasSelectedFile()) return false;
+  if (fileError && !fileError.classList.contains("hidden")) return false;
+  return appState.questions.length > 0;
 }
 
 function getSelectedDestination() {
