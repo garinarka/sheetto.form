@@ -162,29 +162,6 @@
         border-color: #b8d8fa;
     }
 
-    .step-number {
-        display: grid;
-        width: 28px;
-        height: 28px;
-        flex-shrink: 0;
-        place-items: center;
-        border-radius: 999px;
-        background: var(--color-surface);
-        color: var(--color-muted);
-        font-size: 0.75rem;
-        font-weight: 700;
-    }
-
-    .step-item[data-active="true"] .step-number {
-        background: var(--color-ink);
-        color: white;
-    }
-
-    .step-item[data-complete="true"] .step-number {
-        background: var(--color-success);
-        color: white;
-    }
-
     .guide-step-number {
         @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-ink)] text-sm font-semibold text-white;
     }
