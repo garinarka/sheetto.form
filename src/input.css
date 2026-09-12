@@ -184,4 +184,45 @@
         background: var(--color-success);
         color: white;
     }
+
+    .guide-step-number {
+        @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-ink)] text-sm font-semibold text-white;
+    }
+
+    .step-item {
+        color: var(--color-muted);
+    }
+
+    .step-item[data-active="true"] {
+        color: var(--color-ink);
+    }
+
+    .step-item[data-completed="true"] {
+        color: var(--color-success);
+    }
+
+    .step-number {
+        display: grid;
+        width: 2rem;
+        height: 2rem;
+        flex-shrink: 0;
+        place-items: center;
+        border: 1px solid var(--color-border);
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        background: var(--color-surface);
+    }
+
+    .step-item[data-active="true"] .step-number {
+        border-color: var(--color-ink);
+        background: var(--color-ink);
+        color: white;
+    }
+
+    .step-item[data-completed="true"] .step-number {
+        border-color: var(--color-success);
+        background: var(--color-success);
+        color: white;
+    }
 }

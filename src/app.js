@@ -837,43 +837,6 @@ async function processGoogleForm() {
   }
 }
 
-continueButton?.addEventListener("click", () => {
-  if (!appState.questions.length) {
-    setStatus("Upload file soal terlebih dahulu.", "error");
-    return;
-  }
-  if (!appState.destinationMode) {
-    setStatus("Pilih tujuan Google Form terlebih dahulu.", "error");
-    return;
-  }
-
-  const settings = collectFormSettings();
-
-  if (!settings.title && appState.destinationMode === "new") {
-    setStatus("Isi judul Google Form terlebih dahulu.", "error");
-    formTitleInput?.focus();
-    return;
-  }
-
-  if (appState.destinationMode === "existing") {
-    const formId = extractFormId(settings.existingFormUrl);
-
-    if (!formId) {
-      setStatus("Masukkan link Google Form yang valid.", "error");
-      existingFormUrlInput?.focus();
-      return;
-    }
-  }
-
-  updateSteps(3);
-  document.querySelector("#create-form-section")?.classList.remove("hidden");
-  setStatus(
-    "Pengaturan form siap. Hubungkan Google lalu proses form.",
-    "success",
-  );
-  console.log("Final app state:", appState);
-});
-
 function downloadExcelTemplate() {
   if (!window.XLSX) {
     setStatus("Library Excel belum siap. Coba refresh halaman.", "error");
@@ -926,3 +889,349 @@ document
 updateSteps(1);
 updateContinueButton();
 updateGoogleConnectionUI();
+
+// Guide modal
+const guideModal = document.getElementById("guide-modal");
+const guideOpenButton = document.getElementById("guide-open-button");
+const guideCloseButton = document.getElementById("guide-close-button");
+const guideDoneButton = document.getElementById("guide-done-button");
+const guideModalBackdrop = document.getElementById("guide-modal-backdrop");
+
+let lastFocusedElement = null;
+
+function openGuideModal() {
+  if (!guideModal) return;
+
+  lastFocusedElement = document.activeElement;
+
+  guideModal.classList.remove("hidden");
+  document.body.classList.add("overflow-hidden");
+
+  guideCloseButton?.focus();
+}
+
+function closeGuideModal() {
+  if (!guideModal) return;
+
+  guideModal.classList.add("hidden");
+  document.body.classList.remove("overflow-hidden");
+
+  if (lastFocusedElement instanceof HTMLElement) {
+    lastFocusedElement.focus();
+  }
+}
+
+guideOpenButton?.addEventListener("click", openGuideModal);
+guideCloseButton?.addEventListener("click", closeGuideModal);
+guideDoneButton?.addEventListener("click", closeGuideModal);
+guideModalBackdrop?.addEventListener("click", closeGuideModal);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !guideModal?.classList.contains("hidden")) {
+    closeGuideModal();
+  }
+});
+
+// Welcome alert
+window.addEventListener("load", () => {
+  window.alert(
+    "Selamat datang di Sheet2Form!\n\n" +
+      "Sebelum mulai, disarankan membaca Panduan terlebih dahulu " +
+      "agar proses import soal ke Google Forms berjalan lancar." +
+      "\n\nPanduan dapat dibuka dengan menekan tombol 'Panduan' di pojok kanan atas.",
+  );
+});
+
+const wizardState = {
+  currentStep: 1,
+};
+
+const stepPanels = Array.from(document.querySelectorAll("[data-step-panel]"));
+
+const backButton = document.getElementById("back-button");
+
+const questionFileInput = document.getElementById("question-file");
+
+const destinationButtons = Array.from(
+  document.querySelectorAll("[data-destination]"),
+);
+
+const stepNames = {
+  1: "File soal",
+  2: "Tujuan formulir",
+  3: "Periksa",
+};
+
+function isGoogleConnected() {
+  const statusElement = document.getElementById("google-connection-status");
+
+  if (!statusElement) {
+    return false;
+  }
+
+  const statusText = statusElement.textContent.trim().toLowerCase();
+
+  return (
+    statusText.includes("terhubung") &&
+    !statusText.includes("belum") &&
+    !statusText.includes("gagal")
+  );
+}
+
+function hasSelectedFile() {
+  return Boolean(
+    questionFileInput &&
+    questionFileInput.files &&
+    questionFileInput.files.length > 0,
+  );
+}
+
+function hasValidFile() {
+  if (!hasSelectedFile()) {
+    return false;
+  }
+
+  if (!fileError) {
+    return true;
+  }
+
+  return fileError.classList.contains("hidden");
+}
+
+function getSelectedDestination() {
+  const selectedButton = destinationButtons.find(
+    (button) => button.getAttribute("aria-pressed") === "true",
+  );
+
+  return selectedButton?.dataset.destination || "";
+}
+
+function isValidExistingFormUrl() {
+  const value = existingFormUrlInput?.value.trim() || "";
+
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return (
+      url.hostname === "docs.google.com" && url.pathname.includes("/forms/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function hasValidStep1() {
+  return isGoogleConnected() && hasValidFile();
+}
+
+function hasValidStep2() {
+  const destination = getSelectedDestination();
+
+  if (!destination) {
+    return false;
+  }
+
+  if (destination === "existing") {
+    return isValidExistingFormUrl();
+  }
+
+  return destination === "new";
+}
+
+function hasValidStep3() {
+  const hasPreviewItems = previewList && previewList.children.length > 0;
+
+  const hasVisibleFileError =
+    fileError && !fileError.classList.contains("hidden");
+
+  return Boolean(hasPreviewItems && !hasVisibleFileError);
+}
+
+function isCurrentStepValid() {
+  if (wizardState.currentStep === 1) {
+    return hasValidStep1();
+  }
+
+  if (wizardState.currentStep === 2) {
+    return hasValidStep2();
+  }
+
+  if (wizardState.currentStep === 3) {
+    return hasValidStep3();
+  }
+
+  return false;
+}
+
+function updateStepIndicator() {
+  stepItems.forEach((item) => {
+    const stepNumber = Number(item.dataset.step);
+    const isCurrent = stepNumber === wizardState.currentStep;
+    const isCompleted = stepNumber < wizardState.currentStep;
+
+    item.dataset.active = String(isCurrent);
+    item.dataset.completed = String(isCompleted);
+
+    const numberElement = item.querySelector(".step-number");
+
+    if (numberElement) {
+      numberElement.textContent = isCompleted ? "✓" : String(stepNumber);
+    }
+  });
+
+  if (mobileStepLabel) {
+    mobileStepLabel.textContent =
+      `Langkah ${wizardState.currentStep} dari 3 · ` +
+      stepNames[wizardState.currentStep];
+  }
+}
+
+function updateWizardButtons() {
+  const currentStep = wizardState.currentStep;
+  const isValid = isCurrentStepValid();
+
+  if (continueButton) {
+    continueButton.disabled = !isValid;
+
+    if (currentStep === 3) {
+      continueButton.classList.add("hidden");
+    } else {
+      continueButton.classList.remove("hidden");
+
+      continueButton.innerHTML =
+        currentStep === 2
+          ? 'Lanjut ke preview <span aria-hidden="true">→</span>'
+          : 'Lanjutkan <span aria-hidden="true">→</span>';
+    }
+  }
+
+  if (backButton) {
+    if (currentStep === 1) {
+      backButton.classList.add("hidden");
+    } else {
+      backButton.classList.remove("hidden");
+    }
+  }
+
+  if (statusMessage) {
+    if (isValid) {
+      if (currentStep === 1) {
+        statusMessage.textContent =
+          "Step 1 siap. Klik Lanjutkan untuk memilih tujuan formulir.";
+      } else if (currentStep === 2) {
+        statusMessage.textContent =
+          "Pengaturan tujuan sudah lengkap. Klik lanjut untuk memeriksa soal.";
+      } else {
+        statusMessage.textContent =
+          "Soal siap diperiksa dan diproses ke Google Forms.";
+      }
+    } else {
+      if (currentStep === 1) {
+        statusMessage.textContent =
+          "Hubungkan Google dan pilih file soal untuk melanjutkan.";
+      } else if (currentStep === 2) {
+        statusMessage.textContent =
+          "Pilih tujuan formulir dan lengkapi data yang diperlukan.";
+      } else {
+        statusMessage.textContent =
+          "Pastikan preview soal sudah tersedia dan tidak memiliki error.";
+      }
+    }
+  }
+}
+
+function showStep(stepNumber) {
+  if (![1, 2, 3].includes(stepNumber)) {
+    return;
+  }
+
+  wizardState.currentStep = stepNumber;
+
+  stepPanels.forEach((panel) => {
+    const panelStep = Number(panel.dataset.stepPanel);
+    const shouldShow = panelStep === stepNumber;
+
+    panel.classList.toggle("hidden", !shouldShow);
+    panel.setAttribute("aria-hidden", String(!shouldShow));
+  });
+
+  updateStepIndicator();
+  updateWizardButtons();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+}
+
+function goToNextStep() {
+  if (!isCurrentStepValid()) {
+    updateWizardButtons();
+    return;
+  }
+
+  if (wizardState.currentStep < 3) {
+    showStep(wizardState.currentStep + 1);
+  }
+}
+
+function goToPreviousStep() {
+  if (wizardState.currentStep > 1) {
+    showStep(wizardState.currentStep - 1);
+  }
+}
+
+continueButton?.addEventListener("click", goToNextStep);
+backButton?.addEventListener("click", goToPreviousStep);
+
+destinationButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    window.setTimeout(updateWizardButtons, 0);
+  });
+});
+
+questionFileInput?.addEventListener("change", () => {
+  window.setTimeout(updateWizardButtons, 0);
+});
+
+existingFormUrlInput?.addEventListener("input", updateWizardButtons);
+
+document
+  .getElementById("google-connect-button")
+  ?.addEventListener("click", () => {
+    window.setTimeout(updateWizardButtons, 500);
+    window.setTimeout(updateWizardButtons, 1500);
+  });
+
+const wizardObserver = new MutationObserver(() => {
+  updateWizardButtons();
+});
+
+if (fileError) {
+  wizardObserver.observe(fileError, {
+    attributes: true,
+    childList: true,
+    subtree: true,
+  });
+}
+
+if (fileSummary) {
+  wizardObserver.observe(fileSummary, {
+    attributes: true,
+    childList: true,
+    subtree: true,
+  });
+}
+
+if (previewList) {
+  wizardObserver.observe(previewList, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+showStep(1);
