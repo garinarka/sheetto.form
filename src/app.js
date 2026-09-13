@@ -797,6 +797,14 @@ function showCreatedFormResult(result) {
 }
 
 async function processGoogleForm() {
+  if (!isGoogleConnected()) {
+    setStatus(
+      "Hubungkan akun Google dulu lewat sidebar sebelum memproses form.",
+      "error",
+    );
+    return;
+  }
+
   const button = document.querySelector("#create-google-form-button");
   if (button) {
     button.disabled = true;
@@ -983,7 +991,7 @@ function isValidExistingFormUrl() {
 }
 
 function hasValidStep1() {
-  return isGoogleConnected() && hasValidFile();
+  return hasValidFile();
 }
 
 function hasValidStep2() {
@@ -1100,7 +1108,7 @@ function updateWizardButtons() {
     } else {
       if (currentStep === 1) {
         statusMessage.textContent =
-          "Hubungkan Google dan pilih file soal untuk melanjutkan.";
+          "Pilih file soal yang valid untuk melanjutkan.";
       } else if (currentStep === 2) {
         statusMessage.textContent =
           "Pastikan preview soal sudah tersedia dan tidak memiliki error.";
