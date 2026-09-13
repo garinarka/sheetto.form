@@ -513,6 +513,7 @@ async function readQuestionFile(file) {
 
   const rows = XLSX.utils.sheet_to_json(worksheet, {
     defval: "",
+    blankrows: true,
   });
 
   if (rows.length === 0) {
