@@ -932,9 +932,10 @@ const destinationButtons = Array.from(
 );
 
 const stepNames = {
-  1: "File soal",
-  2: "Tujuan formulir",
-  3: "Periksa",
+  1: "Upload File",
+  2: "Preview Soal",
+  3: "Pengaturan Google Form",
+  4: "Proses Google Form",
 };
 
 function isGoogleConnected() {
@@ -986,6 +987,15 @@ function hasValidStep1() {
 }
 
 function hasValidStep2() {
+  const hasPreviewItems = previewList && previewList.children.length > 0;
+
+  const hasVisibleFileError =
+    fileError && !fileError.classList.contains("hidden");
+
+  return Boolean(hasPreviewItems && !hasVisibleFileError);
+}
+
+function hasValidStep3() {
   const destination = getSelectedDestination();
 
   if (!destination) {
@@ -999,13 +1009,8 @@ function hasValidStep2() {
   return destination === "new";
 }
 
-function hasValidStep3() {
-  const hasPreviewItems = previewList && previewList.children.length > 0;
-
-  const hasVisibleFileError =
-    fileError && !fileError.classList.contains("hidden");
-
-  return Boolean(hasPreviewItems && !hasVisibleFileError);
+function hasValidStep4() {
+  return true;
 }
 
 function isCurrentStepValid() {
@@ -1019,6 +1024,10 @@ function isCurrentStepValid() {
 
   if (wizardState.currentStep === 3) {
     return hasValidStep3();
+  }
+
+  if (wizardState.currentStep === 4) {
+    return hasValidStep4();
   }
 
   return false;
@@ -1042,7 +1051,7 @@ function updateStepIndicator() {
 
   if (mobileStepLabel) {
     mobileStepLabel.textContent =
-      `Langkah ${wizardState.currentStep} dari 3 · ` +
+      `Langkah ${wizardState.currentStep} dari 4 · ` +
       stepNames[wizardState.currentStep];
   }
 }
@@ -1054,13 +1063,13 @@ function updateWizardButtons() {
   if (continueButton) {
     continueButton.disabled = !isValid;
 
-    if (currentStep === 3) {
+    if (currentStep === 4) {
       continueButton.classList.add("hidden");
     } else {
       continueButton.classList.remove("hidden");
 
       continueButton.innerHTML =
-        currentStep === 2
+        currentStep === 1
           ? 'Lanjut ke preview <span aria-hidden="true">→</span>'
           : 'Lanjutkan <span aria-hidden="true">→</span>';
     }
@@ -1078,13 +1087,15 @@ function updateWizardButtons() {
     if (isValid) {
       if (currentStep === 1) {
         statusMessage.textContent =
-          "Step 1 siap. Klik Lanjutkan untuk memilih tujuan formulir.";
+          "File siap. Klik Lanjutkan untuk memeriksa soal.";
       } else if (currentStep === 2) {
         statusMessage.textContent =
-          "Pengaturan tujuan sudah lengkap. Klik lanjut untuk memeriksa soal.";
-      } else {
+          "Soal sudah diperiksa. Klik Lanjutkan untuk memilih tujuan formulir.";
+      } else if (currentStep === 3) {
         statusMessage.textContent =
-          "Soal siap diperiksa dan diproses ke Google Forms.";
+          "Pengaturan tujuan sudah lengkap. Klik Lanjutkan untuk proses Google Form.";
+      } else {
+        statusMessage.textContent = "Soal siap diproses ke Google Forms.";
       }
     } else {
       if (currentStep === 1) {
@@ -1092,17 +1103,19 @@ function updateWizardButtons() {
           "Hubungkan Google dan pilih file soal untuk melanjutkan.";
       } else if (currentStep === 2) {
         statusMessage.textContent =
+          "Pastikan preview soal sudah tersedia dan tidak memiliki error.";
+      } else if (currentStep === 3) {
+        statusMessage.textContent =
           "Pilih tujuan formulir dan lengkapi data yang diperlukan.";
       } else {
-        statusMessage.textContent =
-          "Pastikan preview soal sudah tersedia dan tidak memiliki error.";
+        statusMessage.textContent = "Soal siap diproses ke Google Forms.";
       }
     }
   }
 }
 
 function showStep(stepNumber) {
-  if (![1, 2, 3].includes(stepNumber)) {
+  if (![1, 2, 3, 4].includes(stepNumber)) {
     return;
   }
 
@@ -1131,7 +1144,7 @@ function goToNextStep() {
     return;
   }
 
-  if (wizardState.currentStep < 3) {
+  if (wizardState.currentStep < 4) {
     showStep(wizardState.currentStep + 1);
   }
 }
