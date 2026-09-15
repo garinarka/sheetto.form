@@ -25,6 +25,11 @@ const continueButton = document.querySelector("#continue-button");
 const statusMessage = document.querySelector("#status-message");
 const destinationHelp = document.querySelector("#destination-help");
 const mobileStepLabel = document.querySelector("#mobile-step-label");
+const wizardSidebar = document.getElementById("wizard-sidebar");
+const wizardSidebarToggle = document.getElementById("wizard-sidebar-toggle");
+const wizardSidebarToggleIcon = document.getElementById(
+  "wizard-sidebar-toggle-icon",
+);
 
 const previewSection = document.querySelector("#preview-section");
 const previewList = document.querySelector("#preview-list");
@@ -1122,6 +1127,38 @@ function updateWizardButtons() {
   }
 }
 
+function closeWizardSidebar() {
+  if (!wizardSidebar || !wizardSidebarToggle) return;
+
+  wizardSidebar.classList.add("hidden");
+  wizardSidebar.classList.remove("flex");
+  wizardSidebarToggle.setAttribute("aria-expanded", "false");
+
+  if (wizardSidebarToggleIcon) {
+    wizardSidebarToggleIcon.textContent = "▾";
+  }
+}
+
+function openWizardSidebar() {
+  if (!wizardSidebar || !wizardSidebarToggle) return;
+
+  wizardSidebar.classList.remove("hidden");
+  wizardSidebar.classList.add("flex");
+  wizardSidebarToggle.setAttribute("aria-expanded", "true");
+
+  if (wizardSidebarToggleIcon) {
+    wizardSidebarToggleIcon.textContent = "▴";
+  }
+}
+
+function toggleWizardSidebar() {
+  if (wizardSidebarToggle?.getAttribute("aria-expanded") === "true") {
+    closeWizardSidebar();
+  } else {
+    openWizardSidebar();
+  }
+}
+
 function showStep(stepNumber) {
   if (![1, 2, 3, 4].includes(stepNumber)) {
     return;
@@ -1139,6 +1176,7 @@ function showStep(stepNumber) {
 
   updateStepIndicator();
   updateWizardButtons();
+  closeWizardSidebar();
 
   window.scrollTo({
     top: 0,
@@ -1165,6 +1203,7 @@ function goToPreviousStep() {
 
 continueButton?.addEventListener("click", goToNextStep);
 backButton?.addEventListener("click", goToPreviousStep);
+wizardSidebarToggle?.addEventListener("click", toggleWizardSidebar);
 existingFormUrlInput?.addEventListener("input", updateWizardButtons);
 
 showStep(1);
