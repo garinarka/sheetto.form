@@ -30,6 +30,11 @@ const wizardSidebarToggle = document.getElementById("wizard-sidebar-toggle");
 const wizardSidebarToggleIcon = document.getElementById(
   "wizard-sidebar-toggle-icon",
 );
+const sidebarCollapseToggle = document.getElementById(
+  "sidebar-collapse-toggle",
+);
+const mainContent = document.getElementById("main-content");
+const SIDEBAR_COLLAPSE_STORAGE_KEY = "sheet2form:sidebar-collapsed";
 
 const previewSection = document.querySelector("#preview-section");
 const previewList = document.querySelector("#preview-list");
@@ -1127,6 +1132,55 @@ function updateWizardButtons() {
   }
 }
 
+function syncSidebarCollapseTogglePosition() {
+  if (!sidebarCollapseToggle) return;
+
+  const isExpanded =
+    sidebarCollapseToggle.getAttribute("aria-expanded") === "true";
+
+  sidebarCollapseToggle.classList.toggle("self-end", isExpanded);
+}
+
+function collapseSidebar() {
+  if (!wizardSidebar || !sidebarCollapseToggle) return;
+
+  wizardSidebar.setAttribute("data-collapsed", "true");
+  mainContent?.setAttribute("data-sidebar-collapsed", "true");
+  sidebarCollapseToggle.setAttribute("aria-expanded", "false");
+
+  syncSidebarCollapseTogglePosition();
+
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSE_STORAGE_KEY, "true");
+  } catch (error) {
+    console.warn("Tidak dapat menyimpan preferensi sidebar.", error);
+  }
+}
+
+function expandSidebar() {
+  if (!wizardSidebar || !sidebarCollapseToggle) return;
+
+  wizardSidebar.setAttribute("data-collapsed", "false");
+  mainContent?.setAttribute("data-sidebar-collapsed", "false");
+  sidebarCollapseToggle.setAttribute("aria-expanded", "true");
+
+  syncSidebarCollapseTogglePosition();
+
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSE_STORAGE_KEY, "false");
+  } catch (error) {
+    console.warn("Tidak dapat menyimpan preferensi sidebar.", error);
+  }
+}
+
+function toggleSidebarCollapse() {
+  if (wizardSidebar?.getAttribute("data-collapsed") === "true") {
+    expandSidebar();
+  } else {
+    collapseSidebar();
+  }
+}
+
 function closeWizardSidebar() {
   if (!wizardSidebar || !wizardSidebarToggle) return;
 
@@ -1204,6 +1258,28 @@ function goToPreviousStep() {
 continueButton?.addEventListener("click", goToNextStep);
 backButton?.addEventListener("click", goToPreviousStep);
 wizardSidebarToggle?.addEventListener("click", toggleWizardSidebar);
+sidebarCollapseToggle?.addEventListener("click", toggleSidebarCollapse);
 existingFormUrlInput?.addEventListener("input", updateWizardButtons);
+
+try {
+  const storedCollapsed = window.localStorage.getItem(
+    SIDEBAR_COLLAPSE_STORAGE_KEY,
+  );
+
+  if (storedCollapsed === "true") {
+    collapseSidebar();
+  } else {
+    expandSidebar();
+  }
+} catch (error) {
+  console.warn("Tidak dapat membaca preferensi sidebar.", error);
+}
+
+const xlMediaQuery = window.matchMedia("(min-width: 1280px)");
+xlMediaQuery.addEventListener("change", (event) => {
+  if (!event.matches) {
+    expandSidebar();
+  }
+});
 
 showStep(1);

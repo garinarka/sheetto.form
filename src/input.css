@@ -203,3 +203,24 @@
         color: white;
     }
 }
+
+@media (min-width: 1280px) {
+    #wizard-sidebar[data-collapsed="true"] {
+        width: 4.5rem;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    #wizard-sidebar[data-collapsed="true"] .sidebar-label {
+        display: none;
+    }
+
+    #wizard-sidebar[data-collapsed="true"] #sidebar-collapse-toggle span[aria-hidden="true"] {
+        display: inline-block;
+        transform: rotate(180deg);
+    }
+
+    #main-content[data-sidebar-collapsed="true"] {
+        left: 4.5rem;
+    }
+}
