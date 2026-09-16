@@ -535,6 +535,70 @@ function updateGoogleConnectionUI() {
   }
 }
 
+const GOOGLE_PREVIOUSLY_CONNECTED_KEY =
+  "sheet2form:google-previously-connected";
+
+function attemptSilentGoogleReconnect(retriesLeft = 10) {
+  let wasPreviouslyConnected = false;
+  try {
+    wasPreviouslyConnected =
+      window.localStorage.getItem(GOOGLE_PREVIOUSLY_CONNECTED_KEY) === "true";
+  } catch (error) {
+    wasPreviouslyConnected = false;
+  }
+
+  if (!wasPreviouslyConnected) {
+    // Belum pernah connect di browser ini — GIS tidak akan bisa silent
+    // (tidak ada sesi/consent buat dipulihkan), dan requestAccessToken
+    // tetap akan mencoba buka popup lalu diblokir browser. Lebih baik
+    // tidak dicoba sama sekali daripada memicu warning popup-blocked.
+    return;
+  }
+
+  if (!window.google?.accounts?.oauth2) {
+    if (retriesLeft > 0) {
+      window.setTimeout(
+        () => attemptSilentGoogleReconnect(retriesLeft - 1),
+        300,
+      );
+    }
+
+    return;
+  }
+
+  if (
+    !window.GOOGLE_CONFIG?.clientId ||
+    window.GOOGLE_CONFIG.clientId.includes("GANTI_DENGAN")
+  ) {
+    return;
+  }
+
+  const silentTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: window.GOOGLE_CONFIG.clientId,
+
+    scope: "https://www.googleapis.com/auth/forms.body",
+
+    callback: (tokenResponse) => {
+      if (tokenResponse.error || !tokenResponse.access_token) {
+        // Percobaan diam-diam gagal (belum ada sesi Google aktif, atau
+        // belum pernah consent) — tetap di status "belum terhubung",
+        // tanpa mengganggu user dengan pesan error.
+        return;
+      }
+
+      appState.google.accessToken = tokenResponse.access_token;
+      appState.google.connected = true;
+
+      updateGoogleConnectionUI();
+      updateWizardButtons();
+
+      console.log("Google OAuth dipulihkan otomatis (silent).");
+    },
+  });
+
+  silentTokenClient.requestAccessToken({ prompt: "" });
+}
+
 function connectToGoogle() {
   if (!window.google?.accounts?.oauth2) {
     setStatus(
@@ -577,6 +641,12 @@ function connectToGoogle() {
       appState.google.accessToken = tokenResponse.access_token;
 
       appState.google.connected = true;
+
+      try {
+        window.localStorage.setItem(GOOGLE_PREVIOUSLY_CONNECTED_KEY, "true");
+      } catch (error) {
+        console.warn("Tidak dapat menyimpan status koneksi Google.", error);
+      }
 
       updateGoogleConnectionUI();
       updateWizardButtons();
@@ -1448,6 +1518,8 @@ xlMediaQuery.addEventListener("change", (event) => {
     expandSidebar();
   }
 });
+
+attemptSilentGoogleReconnect();
 
 const hasRestoredProgress = restoreWizardProgress();
 
