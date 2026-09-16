@@ -431,6 +431,19 @@
                                     Buat Google Form sekarang
                                 </button>
 
+                                <div id="process-progress" class="mt-4 hidden" role="status" aria-live="polite">
+                                    <div class="flex items-center justify-between text-xs text-stone-500">
+                                        <span id="process-progress-label">Mempersiapkan data...</span>
+                                        <span id="process-progress-percent">0%</span>
+                                    </div>
+
+                                    <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+                                        <div id="process-progress-bar"
+                                            class="h-full rounded-full bg-stone-900 transition-all duration-300"
+                                            style="width: 0%"></div>
+                                    </div>
+                                </div>
+
                                 <div id="created-form-result" class="mt-4 hidden rounded-xl border border-emerald-200
                            bg-emerald-50 p-4">
                                     <p id="created-form-title" class="font-semibold text-emerald-900"></p>

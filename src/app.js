@@ -874,11 +874,36 @@ function buildBatchRequests() {
   return requests;
 }
 
-async function createGoogleForm() {
+function setProcessProgress(step, total, label) {
+  const container = document.getElementById("process-progress");
+  const labelElement = document.getElementById("process-progress-label");
+  const percentElement = document.getElementById("process-progress-percent");
+  const barElement = document.getElementById("process-progress-bar");
+
+  if (!container) return;
+
+  container.classList.remove("hidden");
+
+  const percent = Math.round((step / total) * 100);
+
+  if (labelElement) labelElement.textContent = label;
+  if (percentElement) percentElement.textContent = `${percent}%`;
+  if (barElement) barElement.style.width = `${percent}%`;
+}
+
+function hideProcessProgress() {
+  document.getElementById("process-progress")?.classList.add("hidden");
+}
+
+async function createGoogleForm(onProgress) {
+  onProgress?.(1, 4, "Mempersiapkan data...");
+
   const settings = collectFormSettings();
   if (!appState.google.connected)
     throw new Error("Hubungkan akun Google terlebih dahulu.");
   if (!settings.title) throw new Error("Judul Google Form belum diisi.");
+
+  onProgress?.(2, 4, "Membuat Google Form...");
 
   const created = await googleFormsRequest(
     "https://forms.googleapis.com/v1/forms",
@@ -890,6 +915,8 @@ async function createGoogleForm() {
     },
   );
 
+  onProgress?.(3, 4, "Menambahkan soal...");
+
   await googleFormsRequest(
     `https://forms.googleapis.com/v1/forms/${created.formId}:batchUpdate`,
     {
@@ -898,6 +925,8 @@ async function createGoogleForm() {
     },
   );
 
+  onProgress?.(4, 4, "Menyelesaikan proses...");
+
   return {
     formId: created.formId,
     title: settings.title,
@@ -905,14 +934,21 @@ async function createGoogleForm() {
   };
 }
 
-async function appendToExistingGoogleForm() {
+async function appendToExistingGoogleForm(onProgress) {
+  onProgress?.(1, 4, "Mempersiapkan data...");
+
   const settings = collectFormSettings();
   const formId = extractFormId(settings.existingFormUrl);
   if (!formId) throw new Error("Link Google Form belum valid.");
 
+  onProgress?.(2, 4, "Membuka Google Form yang dipilih...");
+
   const requests = buildBatchRequests().filter(
     (request) => !request.updateFormInfo && !request.updateSettings,
   );
+
+  onProgress?.(3, 4, "Menambahkan soal...");
+
   await googleFormsRequest(
     `https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`,
     {
@@ -920,6 +956,8 @@ async function appendToExistingGoogleForm() {
       body: JSON.stringify({ requests }),
     },
   );
+
+  onProgress?.(4, 4, "Menyelesaikan proses...");
 
   return {
     formId,
@@ -997,8 +1035,8 @@ async function processGoogleForm() {
   try {
     const result =
       appState.destinationMode === "new"
-        ? await createGoogleForm()
-        : await appendToExistingGoogleForm();
+        ? await createGoogleForm(setProcessProgress)
+        : await appendToExistingGoogleForm(setProcessProgress);
 
     showCreatedFormResult(result);
     setStatus("Google Form berhasil diproses.", "success");
@@ -1011,6 +1049,7 @@ async function processGoogleForm() {
       button.disabled = false;
     }
     updateCreateFormCopy();
+    hideProcessProgress();
   }
 }
 
