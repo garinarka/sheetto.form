@@ -1056,9 +1056,26 @@ function updateStepIndicator() {
     const stepNumber = Number(item.dataset.step);
     const isCurrent = stepNumber === wizardState.currentStep;
     const isCompleted = stepNumber < wizardState.currentStep;
+    const stepName = stepNames[stepNumber] || "";
 
     item.dataset.active = String(isCurrent);
     item.dataset.completed = String(isCompleted);
+
+    if (isCurrent) {
+      item.setAttribute("aria-current", "step");
+    } else {
+      item.removeAttribute("aria-current");
+    }
+
+    const status = isCompleted
+      ? "selesai"
+      : isCurrent
+        ? "sedang dikerjakan"
+        : "belum dibuka";
+    item.setAttribute(
+      "aria-label",
+      `Langkah ${stepNumber}: ${stepName}, ${status}`,
+    );
 
     const numberElement = item.querySelector(".step-number");
 
@@ -1148,6 +1165,9 @@ function collapseSidebar() {
   mainContent?.setAttribute("data-sidebar-collapsed", "true");
   sidebarCollapseToggle.setAttribute("aria-expanded", "false");
 
+  const label = sidebarCollapseToggle.querySelector(".sr-only");
+  if (label) label.textContent = "Perluas sidebar";
+
   syncSidebarCollapseTogglePosition();
 
   try {
@@ -1163,6 +1183,9 @@ function expandSidebar() {
   wizardSidebar.setAttribute("data-collapsed", "false");
   mainContent?.setAttribute("data-sidebar-collapsed", "false");
   sidebarCollapseToggle.setAttribute("aria-expanded", "true");
+
+  const label = sidebarCollapseToggle.querySelector(".sr-only");
+  if (label) label.textContent = "Ciutkan sidebar";
 
   syncSidebarCollapseTogglePosition();
 
@@ -1181,8 +1204,10 @@ function toggleSidebarCollapse() {
   }
 }
 
-function closeWizardSidebar() {
+function closeWizardSidebar({ returnFocus = false } = {}) {
   if (!wizardSidebar || !wizardSidebarToggle) return;
+
+  const wasOpen = wizardSidebarToggle.getAttribute("aria-expanded") === "true";
 
   wizardSidebar.classList.add("hidden");
   wizardSidebar.classList.remove("flex");
@@ -1190,6 +1215,10 @@ function closeWizardSidebar() {
 
   if (wizardSidebarToggleIcon) {
     wizardSidebarToggleIcon.textContent = "▾";
+  }
+
+  if (returnFocus && wasOpen) {
+    wizardSidebarToggle.focus();
   }
 }
 
@@ -1203,22 +1232,49 @@ function openWizardSidebar() {
   if (wizardSidebarToggleIcon) {
     wizardSidebarToggleIcon.textContent = "▴";
   }
+
+  wizardSidebar.focus({ preventScroll: true });
 }
 
 function toggleWizardSidebar() {
   if (wizardSidebarToggle?.getAttribute("aria-expanded") === "true") {
-    closeWizardSidebar();
+    closeWizardSidebar({ returnFocus: true });
   } else {
     openWizardSidebar();
   }
 }
 
-function showStep(stepNumber) {
+document.addEventListener("keydown", (event) => {
+  if (
+    event.key === "Escape" &&
+    wizardSidebarToggle?.getAttribute("aria-expanded") === "true"
+  ) {
+    closeWizardSidebar({ returnFocus: true });
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (wizardSidebarToggle?.getAttribute("aria-expanded") !== "true") return;
+
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+
+  const clickedInsideSidebar = wizardSidebar?.contains(target);
+  const clickedToggle = wizardSidebarToggle?.contains(target);
+
+  if (!clickedInsideSidebar && !clickedToggle) {
+    closeWizardSidebar();
+  }
+});
+
+function showStep(stepNumber, { moveFocus = true } = {}) {
   if (![1, 2, 3, 4].includes(stepNumber)) {
     return;
   }
 
   wizardState.currentStep = stepNumber;
+
+  let activePanel = null;
 
   stepPanels.forEach((panel) => {
     const panelStep = Number(panel.dataset.stepPanel);
@@ -1226,6 +1282,10 @@ function showStep(stepNumber) {
 
     panel.classList.toggle("hidden", !shouldShow);
     panel.setAttribute("aria-hidden", String(!shouldShow));
+
+    if (shouldShow) {
+      activePanel = panel;
+    }
   });
 
   updateStepIndicator();
@@ -1236,6 +1296,10 @@ function showStep(stepNumber) {
     top: 0,
     behavior: "smooth",
   });
+
+  if (moveFocus && activePanel instanceof HTMLElement) {
+    activePanel.focus({ preventScroll: true });
+  }
 }
 
 function goToNextStep() {
@@ -1282,4 +1346,4 @@ xlMediaQuery.addEventListener("change", (event) => {
   }
 });
 
-showStep(1);
+showStep(1, { moveFocus: false });

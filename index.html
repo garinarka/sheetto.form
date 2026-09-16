@@ -46,7 +46,7 @@
 
     <div class="relative h-screen w-full pt-16">
         <!-- Sidebar -->
-        <aside id="wizard-sidebar"
+        <aside id="wizard-sidebar" tabindex="-1"
             class="fixed inset-x-0 top-16 z-30 hidden max-h-[calc(100vh-4rem)] w-full flex-col
                overflow-y-auto border-b border-[var(--color-border)] bg-[var(--color-page)] px-5 py-6
                xl:inset-x-auto xl:bottom-0 xl:top-16 xl:left-0 xl:flex xl:h-auto xl:max-h-none xl:w-72
@@ -142,7 +142,8 @@
                     <div class="mt-10 w-full max-w-5xl min-w-0">
 
                         <!-- STEP 1 -->
-                        <section id="step-panel-1" data-step-panel="1" aria-labelledby="file-section-title">
+                        <section id="step-panel-1" data-step-panel="1" tabindex="-1"
+                            aria-labelledby="file-section-title">
                             <!-- File section -->
                             <section id="file-section" aria-labelledby="file-section-title">
 
@@ -220,7 +221,7 @@
                         </section>
 
                         <!-- STEP 3 -->
-                        <section id="step-panel-3" data-step-panel="3" aria-labelledby="destination-title"
+                        <section id="step-panel-3" data-step-panel="3" tabindex="-1" aria-labelledby="destination-title"
                             class="hidden">
                             <!-- Destination section -->
                             <section id="destination-section" aria-labelledby="destination-title">
@@ -384,7 +385,7 @@
                         </section>
 
                         <!-- STEP 2 -->
-                        <section id="step-panel-2" data-step-panel="2" class="hidden">
+                        <section id="step-panel-2" data-step-panel="2" tabindex="-1" class="hidden">
                             <!-- Preview -->
                             <section id="preview-section">
                                 <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -413,7 +414,7 @@
                         </section>
 
                         <!-- STEP 4 -->
-                        <section id="step-panel-4" data-step-panel="4" class="hidden">
+                        <section id="step-panel-4" data-step-panel="4" tabindex="-1" class="hidden">
                             <!-- Google Forms actions -->
                             <section id="create-form-section"
                                 class="rounded-2xl border border-stone-200 bg-stone-50 p-5">
