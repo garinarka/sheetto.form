@@ -126,6 +126,7 @@ function updateDestination(mode) {
   updateFormSettingsVisibility();
   updateCreateFormCopy();
   updateWizardButtons();
+  saveWizardProgress();
 }
 
 function updateFormSettingsVisibility() {
@@ -152,7 +153,106 @@ function collectFormSettings() {
     existingFormUrl: existingFormUrlInput?.value.trim() || "",
   };
 
+  saveWizardProgress();
+
   return appState.formSettings;
+}
+
+const WIZARD_PROGRESS_STORAGE_KEY = "sheet2form:wizard-progress";
+
+function saveWizardProgress() {
+  try {
+    const payload = {
+      fileName: appState.selectedFile?.name || appState.restoredFileName || "",
+      questions: appState.questions,
+      destinationMode: appState.destinationMode,
+      formSettings: appState.formSettings,
+      currentStep: wizardState.currentStep,
+    };
+
+    window.sessionStorage.setItem(
+      WIZARD_PROGRESS_STORAGE_KEY,
+      JSON.stringify(payload),
+    );
+  } catch (error) {
+    console.warn("Tidak dapat menyimpan progres wizard.", error);
+  }
+}
+
+function clearWizardProgress() {
+  try {
+    window.sessionStorage.removeItem(WIZARD_PROGRESS_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Tidak dapat menghapus progres wizard.", error);
+  }
+}
+
+function restoreWizardProgress() {
+  let stored;
+
+  try {
+    const raw = window.sessionStorage.getItem(WIZARD_PROGRESS_STORAGE_KEY);
+    if (!raw) return false;
+    stored = JSON.parse(raw);
+  } catch (error) {
+    console.warn("Tidak dapat membaca progres wizard.", error);
+    return false;
+  }
+
+  if (
+    !stored ||
+    !Array.isArray(stored.questions) ||
+    stored.questions.length === 0
+  ) {
+    return false;
+  }
+
+  appState.questions = stored.questions;
+  appState.restoredFileName = stored.fileName || "";
+
+  updateFileSummary(
+    { name: stored.fileName || "File sebelumnya" },
+    appState.questions,
+  );
+  renderPreview();
+  updateFormSettingsVisibility();
+
+  if (stored.formSettings) {
+    appState.formSettings = {
+      ...appState.formSettings,
+      ...stored.formSettings,
+    };
+
+    if (formTitleInput) {
+      formTitleInput.value = appState.formSettings.title || "";
+    }
+    if (formDescriptionInput) {
+      formDescriptionInput.value = appState.formSettings.description || "";
+    }
+    if (formIsQuizInput) {
+      formIsQuizInput.checked = Boolean(appState.formSettings.isQuiz);
+    }
+    if (formRequiredInput) {
+      formRequiredInput.checked = Boolean(appState.formSettings.required);
+    }
+    if (existingFormUrlInput) {
+      existingFormUrlInput.value = appState.formSettings.existingFormUrl || "";
+    }
+  }
+
+  if (stored.destinationMode) {
+    updateDestination(stored.destinationMode);
+  }
+
+  const restoredStep = Math.min(
+    Math.max(Number(stored.currentStep) || 1, 1),
+    4,
+  );
+  showStep(restoredStep, { moveFocus: false });
+
+  setStatus("Progres sebelumnya berhasil dipulihkan.", "success");
+
+  return true;
 }
 
 function normalizeHeader(value) {
@@ -576,6 +676,7 @@ fileInput?.addEventListener("change", async (event) => {
     renderPreview();
     updateFormSettingsVisibility();
     updateWizardButtons();
+    saveWizardProgress();
 
     setStatus(`${questions.length} soal berhasil dibaca.`, "success");
   } catch (error) {
@@ -831,6 +932,7 @@ async function processGoogleForm() {
 
     showCreatedFormResult(result);
     setStatus("Google Form berhasil diproses.", "success");
+    clearWizardProgress();
   } catch (error) {
     console.error(error);
     setStatus(error.message || "Google Form gagal diproses.", "error");
@@ -1291,6 +1393,7 @@ function showStep(stepNumber, { moveFocus = true } = {}) {
   updateStepIndicator();
   updateWizardButtons();
   closeWizardSidebar();
+  saveWizardProgress();
 
   window.scrollTo({
     top: 0,
@@ -1346,4 +1449,8 @@ xlMediaQuery.addEventListener("change", (event) => {
   }
 });
 
-showStep(1, { moveFocus: false });
+const hasRestoredProgress = restoreWizardProgress();
+
+if (!hasRestoredProgress) {
+  showStep(1, { moveFocus: false });
+}
