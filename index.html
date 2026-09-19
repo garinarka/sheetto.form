@@ -183,6 +183,21 @@
                                     <input id="question-file" type="file" accept=".xlsx,.xls,.csv" class="sr-only" />
                                 </label>
 
+                                <div id="sheet-picker" class="mt-4 hidden rounded-lg border
+                           border-[var(--color-border)] bg-white p-4">
+                                    <label for="sheet-picker-select" class="text-sm font-semibold text-stone-900">
+                                        File ini punya beberapa sheet
+                                    </label>
+
+                                    <p class="mt-1 text-sm text-[var(--color-muted)]">
+                                        Pilih sheet yang berisi soal yang ingin diimpor.
+                                    </p>
+
+                                    <select id="sheet-picker-select" class="mt-3 w-full rounded-lg border
+                               border-[var(--color-border)] bg-white px-3 py-2 text-sm">
+                                    </select>
+                                </div>
+
                                 <div id="file-summary" class="mt-5 hidden rounded-lg border
                            border-[var(--color-border)] bg-white p-4" aria-live="polite">
                                     <div class="flex items-start gap-3">

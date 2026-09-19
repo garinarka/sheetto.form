@@ -2,6 +2,7 @@ const appState = {
   selectedFile: null,
   destinationMode: null,
   questions: [],
+  pendingWorkbook: null,
   google: {
     accessToken: null,
     connected: false,
@@ -20,6 +21,8 @@ const fileNameElement = document.querySelector("#file-name");
 const fileSummary = document.querySelector("#file-summary");
 const fileSummaryName = document.querySelector("#file-summary-name");
 const fileSummaryCount = document.querySelector("#file-summary-count");
+const sheetPicker = document.querySelector("#sheet-picker");
+const sheetPickerSelect = document.querySelector("#sheet-picker-select");
 const fileError = document.querySelector("#file-error");
 const continueButton = document.querySelector("#continue-button");
 const statusMessage = document.querySelector("#status-message");
@@ -662,7 +665,7 @@ function connectToGoogle() {
   });
 }
 
-async function readQuestionFile(file) {
+async function parseWorkbookFromFile(file) {
   if (!window.XLSX) {
     throw new Error(
       "Library pembaca Excel belum tersedia. Pastikan script SheetJS sudah ditambahkan.",
@@ -683,13 +686,15 @@ async function readQuestionFile(file) {
     type: "array",
   });
 
-  const firstSheetName = workbook.SheetNames[0];
-
-  if (!firstSheetName) {
+  if (!workbook.SheetNames.length) {
     throw new Error("File tidak memiliki sheet yang bisa dibaca.");
   }
 
-  const worksheet = workbook.Sheets[firstSheetName];
+  return workbook;
+}
+
+function loadQuestionsFromSheet(workbook, sheetName) {
+  const worksheet = workbook.Sheets[sheetName];
 
   const rows = XLSX.utils.sheet_to_json(worksheet, {
     defval: "",
@@ -697,7 +702,7 @@ async function readQuestionFile(file) {
   });
 
   if (rows.length === 0) {
-    throw new Error("Sheet masih kosong.");
+    throw new Error(`Sheet "${sheetName}" masih kosong.`);
   }
 
   const questions = extractQuestions(rows);
@@ -711,26 +716,29 @@ async function readQuestionFile(file) {
   return questions;
 }
 
-fileInput?.addEventListener("change", async (event) => {
-  const file = event.target.files?.[0];
+function hideSheetPicker() {
+  sheetPicker?.classList.add("hidden");
+  if (sheetPickerSelect) sheetPickerSelect.innerHTML = "";
+}
 
-  if (!file) return;
+function showSheetPicker(sheetNames) {
+  if (!sheetPicker || !sheetPickerSelect) return;
 
-  appState.selectedFile = file;
-  appState.questions = [];
+  sheetPickerSelect.innerHTML = "";
 
-  hideError();
-  previewSection?.classList.add("hidden");
+  sheetNames.forEach((name) => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    sheetPickerSelect.appendChild(option);
+  });
 
-  if (fileNameElement) {
-    fileNameElement.textContent = file.name;
-    fileNameElement.classList.remove("hidden");
-  }
+  sheetPicker.classList.remove("hidden");
+}
 
-  setStatus("Sedang membaca file...", "default");
-
+async function finalizeSheetSelection(file, workbook, sheetName) {
   try {
-    const questions = await readQuestionFile(file);
+    const questions = loadQuestionsFromSheet(workbook, sheetName);
 
     const validationErrors = validateQuestions(questions);
 
@@ -751,7 +759,6 @@ fileInput?.addEventListener("change", async (event) => {
     setStatus(`${questions.length} soal berhasil dibaca.`, "success");
   } catch (error) {
     console.error(error);
-    appState.selectedFile = null;
     appState.questions = [];
 
     if (fileSummary) {
@@ -767,6 +774,64 @@ fileInput?.addEventListener("change", async (event) => {
     );
     updateWizardButtons();
   }
+}
+
+fileInput?.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+
+  if (!file) return;
+
+  appState.selectedFile = file;
+  appState.questions = [];
+
+  hideError();
+  hideSheetPicker();
+  previewSection?.classList.add("hidden");
+
+  if (fileNameElement) {
+    fileNameElement.textContent = file.name;
+    fileNameElement.classList.remove("hidden");
+  }
+
+  setStatus("Sedang membaca file...", "default");
+
+  try {
+    const workbook = await parseWorkbookFromFile(file);
+
+    if (workbook.SheetNames.length > 1) {
+      appState.pendingWorkbook = workbook;
+      showSheetPicker(workbook.SheetNames);
+      setStatus(
+        "File punya beberapa sheet — pilih salah satu untuk dibaca.",
+        "default",
+      );
+      return;
+    }
+
+    await finalizeSheetSelection(file, workbook, workbook.SheetNames[0]);
+  } catch (error) {
+    console.error(error);
+    appState.selectedFile = null;
+    appState.questions = [];
+
+    if (fileSummary) {
+      fileSummary.classList.add("hidden");
+    }
+
+    showError(error.message || "File gagal dibaca.");
+    setStatus("File belum berhasil dibaca.", "error");
+    updateWizardButtons();
+  }
+});
+
+sheetPickerSelect?.addEventListener("change", async () => {
+  if (!appState.selectedFile || !appState.pendingWorkbook) return;
+
+  await finalizeSheetSelection(
+    appState.selectedFile,
+    appState.pendingWorkbook,
+    sheetPickerSelect.value,
+  );
 });
 
 destinationCards.forEach((card) => {
