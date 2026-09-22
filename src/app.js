@@ -296,32 +296,39 @@ function validateQuestions(questions) {
       question.question || question.options.length > 0 || question.answer;
 
     if (!hasAnyContent) {
-      errors.push(`Baris ${rowNumber}: baris Excel kosong.`);
+      errors.push({ rowNumber, message: "Baris Excel kosong." });
       return;
     }
 
     if (!question.question.trim()) {
-      errors.push(`Baris ${rowNumber}: kolom Question/Pertanyaan kosong.`);
+      errors.push({
+        rowNumber,
+        message: "Kolom Question/Pertanyaan kosong.",
+      });
       return;
     }
 
     if (question.hasOptionGap) {
-      errors.push(
-        `Baris ${rowNumber}: pilihan tidak boleh bolong. Isi pilihan secara berurutan dari Option 1.`,
-      );
+      errors.push({
+        rowNumber,
+        message:
+          "Pilihan tidak boleh bolong. Isi pilihan secara berurutan dari Option 1.",
+      });
     }
 
     if (question.type === "multiple_choice") {
       if (question.options.length < 2) {
-        errors.push(
-          `Baris ${rowNumber}: pilihan ganda harus memiliki minimal 2 opsi.`,
-        );
+        errors.push({
+          rowNumber,
+          message: "Pilihan ganda harus memiliki minimal 2 opsi.",
+        });
       }
 
       if (appState.formSettings.isQuiz && !question.answer) {
-        errors.push(
-          `Baris ${rowNumber}: jawaban wajib diisi saat mode quiz aktif.`,
-        );
+        errors.push({
+          rowNumber,
+          message: "Jawaban wajib diisi saat mode quiz aktif.",
+        });
       }
 
       if (question.answer) {
@@ -332,9 +339,10 @@ function validateQuestions(questions) {
         );
 
         if (!answerExists) {
-          errors.push(
-            `Baris ${rowNumber}: jawaban "${question.answer}" tidak cocok dengan pilihan.`,
-          );
+          errors.push({
+            rowNumber,
+            message: `Jawaban "${question.answer}" tidak cocok dengan pilihan.`,
+          });
         }
       }
     }
@@ -403,7 +411,7 @@ function getQuestionTypeLabel(question) {
   return "Uraian";
 }
 
-function renderPreview() {
+function renderPreview(questionErrors = new Map()) {
   if (!previewSection || !previewList || !previewCount) {
     return;
   }
@@ -419,29 +427,47 @@ function renderPreview() {
   previewSection.classList.remove("hidden");
 
   appState.questions.forEach((question) => {
+    const cardErrors = questionErrors.get(question.number) || [];
+    const hasError = cardErrors.length > 0;
+
     const card = document.createElement("article");
 
-    card.className =
-      "rounded-2xl border border-stone-200 bg-white p-5 shadow-sm";
+    card.className = hasError
+      ? "rounded-2xl border-2 border-red-300 bg-red-50 p-5 shadow-sm"
+      : "rounded-2xl border border-stone-200 bg-white p-5 shadow-sm";
 
     const header = document.createElement("div");
     header.className = "mb-3 flex flex-wrap items-center justify-between gap-2";
 
     const number = document.createElement("span");
-    number.className =
-      "text-xs font-semibold uppercase tracking-widest text-stone-400";
+    number.className = hasError
+      ? "text-xs font-semibold uppercase tracking-widest text-red-500"
+      : "text-xs font-semibold uppercase tracking-widest text-stone-400";
     number.textContent = `Soal ${question.number}`;
+
+    const headerRight = document.createElement("div");
+    headerRight.className = "flex items-center gap-2";
 
     const type = document.createElement("span");
     type.className =
       "rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-600";
     type.textContent = getQuestionTypeLabel(question);
 
-    header.append(number, type);
+    headerRight.appendChild(type);
+
+    if (hasError) {
+      const badge = document.createElement("span");
+      badge.className =
+        "rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700";
+      badge.textContent = "Perlu diperbaiki";
+      headerRight.appendChild(badge);
+    }
+
+    header.append(number, headerRight);
 
     const questionText = document.createElement("p");
     questionText.className = "text-base font-medium leading-7 text-stone-900";
-    questionText.textContent = question.question;
+    questionText.textContent = question.question || "(Pertanyaan kosong)";
 
     card.append(header, questionText);
 
@@ -475,6 +501,24 @@ function renderPreview() {
       answer.textContent = `Kunci jawaban: ${question.answer}`;
 
       card.appendChild(answer);
+    }
+
+    if (hasError) {
+      const errorBox = document.createElement("div");
+      errorBox.className =
+        "mt-4 rounded-lg border border-red-200 bg-white p-3 text-sm leading-6 text-red-700";
+
+      const errorList = document.createElement("ul");
+      errorList.className = "list-disc space-y-1 pl-4";
+
+      cardErrors.forEach((message) => {
+        const item = document.createElement("li");
+        item.textContent = message;
+        errorList.appendChild(item);
+      });
+
+      errorBox.appendChild(errorList);
+      card.appendChild(errorBox);
     }
 
     previewList.appendChild(card);
@@ -739,16 +783,31 @@ function showSheetPicker(sheetNames) {
 async function finalizeSheetSelection(file, workbook, sheetName) {
   try {
     const questions = loadQuestionsFromSheet(workbook, sheetName);
-
     const validationErrors = validateQuestions(questions);
 
-    if (validationErrors.length > 0) {
-      throw new Error(
-        "File memiliki masalah:\n\n" + validationErrors.join("\n"),
-      );
-    }
-
     appState.questions = questions;
+
+    if (validationErrors.length > 0) {
+      const errorsByRow = new Map();
+
+      validationErrors.forEach((error) => {
+        const messages = errorsByRow.get(error.rowNumber) || [];
+        messages.push(error.message);
+        errorsByRow.set(error.rowNumber, messages);
+      });
+
+      updateFileSummary(file, questions);
+      renderPreview(errorsByRow);
+      updateFormSettingsVisibility();
+
+      showError(
+        `${errorsByRow.size} dari ${questions.length} soal memiliki masalah. ` +
+          "Perbaiki file Excel-nya, lalu upload ulang — detail ada di bawah tiap soal yang ditandai merah.",
+      );
+      setStatus("File terbaca, tetapi ada kesalahan pada data.", "error");
+      updateWizardButtons();
+      return;
+    }
 
     updateFileSummary(file, questions);
     renderPreview();
@@ -766,12 +825,7 @@ async function finalizeSheetSelection(file, workbook, sheetName) {
     }
 
     showError(error.message || "File gagal dibaca.");
-    setStatus(
-      error.message?.startsWith("File memiliki masalah")
-        ? "File terbaca, tetapi ada kesalahan pada data."
-        : "File belum berhasil dibaca.",
-      "error",
-    );
+    setStatus("File belum berhasil dibaca.", "error");
     updateWizardButtons();
   }
 }
