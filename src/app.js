@@ -316,7 +316,7 @@ function validateQuestions(questions) {
       });
     }
 
-    if (question.type === "multiple_choice") {
+    if (question.type === "multiple_choice" || question.type === "checkbox") {
       if (question.options.length < 2) {
         errors.push({
           rowNumber,
@@ -324,27 +324,26 @@ function validateQuestions(questions) {
         });
       }
 
-      if (appState.formSettings.isQuiz && !question.answer) {
+      if (appState.formSettings.isQuiz && question.answers.length === 0) {
         errors.push({
           rowNumber,
           message: "Jawaban wajib diisi saat mode quiz aktif.",
         });
       }
 
-      if (question.answer) {
+      question.answers.forEach((answerValue) => {
         const answerExists = question.options.some(
           (option) =>
-            option.toLowerCase().trim() ===
-            question.answer.toLowerCase().trim(),
+            option.toLowerCase().trim() === answerValue.toLowerCase().trim(),
         );
 
         if (!answerExists) {
           errors.push({
             rowNumber,
-            message: `Jawaban "${question.answer}" tidak cocok dengan pilihan.`,
+            message: `Jawaban "${answerValue}" tidak cocok dengan pilihan.`,
           });
         }
-      }
+      });
     }
   });
 
@@ -392,18 +391,61 @@ function extractQuestions(rows) {
       ]),
     );
 
+    const rawType = cleanValue(
+      getValue(row, [
+        "Type",
+        "Tipe",
+        "Jenis Soal",
+        "type",
+        "tipe",
+        "jenis soal",
+      ]),
+    ).toLowerCase();
+
+    const isCheckboxType = [
+      "checkbox",
+      "kotak centang",
+      "multi",
+      "multiple",
+      "pilihan ganda (multi)",
+    ].includes(rawType);
+
+    let type;
+    if (filledOptions.length === 0) {
+      type = "paragraph";
+    } else if (isCheckboxType) {
+      type = "checkbox";
+    } else {
+      type = "multiple_choice";
+    }
+
+    const answers =
+      type === "checkbox"
+        ? answer
+            .split(/[,;]/)
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : answer
+          ? [answer]
+          : [];
+
     return {
       number: index + 2,
       question,
       options: filledOptions,
       answer,
-      type: filledOptions.length > 0 ? "multiple_choice" : "paragraph",
+      answers,
+      type,
       hasOptionGap: hasOptionAfterEmpty,
     };
   });
 }
 
 function getQuestionTypeLabel(question) {
+  if (question.type === "checkbox") {
+    return "Kotak centang (multi-jawaban)";
+  }
+
   if (question.type === "multiple_choice") {
     return "Pilihan ganda";
   }
@@ -963,22 +1005,25 @@ function buildBatchRequests() {
       },
     };
 
-    if (question.type === "multiple_choice") {
+    if (question.type === "multiple_choice" || question.type === "checkbox") {
       item.questionItem.question.choiceQuestion = {
-        type: "RADIO",
+        type: question.type === "checkbox" ? "CHECKBOX" : "RADIO",
         options: question.options.map((value) => ({ value })),
       };
-      if (settings.isQuiz && question.answer) {
-        const answerIndex = question.options.findIndex(
-          (option) =>
-            option.toLowerCase().trim() ===
-            question.answer.toLowerCase().trim(),
+
+      if (settings.isQuiz && question.answers.length > 0) {
+        const matchedOptions = question.options.filter((option) =>
+          question.answers.some(
+            (answerValue) =>
+              option.toLowerCase().trim() === answerValue.toLowerCase().trim(),
+          ),
         );
-        if (answerIndex >= 0) {
+
+        if (matchedOptions.length > 0) {
           item.questionItem.question.grading = {
             pointValue: 1,
             correctAnswers: {
-              answers: [{ value: question.options[answerIndex] }],
+              answers: matchedOptions.map((value) => ({ value })),
             },
           };
         }
