@@ -42,6 +42,7 @@ const SIDEBAR_COLLAPSE_STORAGE_KEY = "sheet2form:sidebar-collapsed";
 const previewSection = document.querySelector("#preview-section");
 const previewList = document.querySelector("#preview-list");
 const previewCount = document.querySelector("#preview-count");
+const previewBreakdown = document.querySelector("#preview-breakdown");
 
 const stepItems = document.querySelectorAll(".step-item");
 const destinationCards = document.querySelectorAll(".destination-card");
@@ -461,6 +462,12 @@ function renderPreview(questionErrors = new Map()) {
   previewList.innerHTML = "";
   previewCount.textContent = `${appState.questions.length} soal`;
 
+  if (previewBreakdown) {
+    previewBreakdown.textContent = getQuestionTypeBreakdown(
+      appState.questions,
+    ).text;
+  }
+
   if (appState.questions.length === 0) {
     previewSection.classList.add("hidden");
     return;
@@ -567,25 +574,49 @@ function renderPreview(questionErrors = new Map()) {
   });
 }
 
-function updateFileSummary(file, questions) {
-  if (!fileSummary || !fileSummaryName || !fileSummaryCount) {
-    return;
-  }
-
+function getQuestionTypeBreakdown(questions) {
   const multipleChoiceCount = questions.filter(
     (question) => question.type === "multiple_choice",
+  ).length;
+
+  const checkboxCount = questions.filter(
+    (question) => question.type === "checkbox",
   ).length;
 
   const paragraphCount = questions.filter(
     (question) => question.type === "paragraph",
   ).length;
 
+  const parts = [];
+  if (multipleChoiceCount > 0) {
+    parts.push(`${multipleChoiceCount} pilihan ganda`);
+  }
+  if (checkboxCount > 0) {
+    parts.push(`${checkboxCount} kotak centang`);
+  }
+  if (paragraphCount > 0) {
+    parts.push(`${paragraphCount} uraian`);
+  }
+
+  return {
+    multipleChoiceCount,
+    checkboxCount,
+    paragraphCount,
+    text: parts.join(" · "),
+  };
+}
+
+function updateFileSummary(file, questions) {
+  if (!fileSummary || !fileSummaryName || !fileSummaryCount) {
+    return;
+  }
+
+  const breakdown = getQuestionTypeBreakdown(questions);
+
   fileSummaryName.textContent = file.name;
 
   fileSummaryCount.textContent =
-    `${questions.length} soal ditemukan · ` +
-    `${multipleChoiceCount} pilihan ganda · ` +
-    `${paragraphCount} uraian`;
+    `${questions.length} soal ditemukan · ` + breakdown.text;
 
   fileSummary.classList.remove("hidden");
 }
