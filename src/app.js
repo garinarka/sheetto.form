@@ -1195,6 +1195,70 @@ function updateCreateFormCopy() {
   if (button && !button.disabled) button.textContent = copy.buttonLabel;
 }
 
+const FORM_HISTORY_STORAGE_KEY = "sheet2form:form-history";
+
+function getFormHistory() {
+  try {
+    const raw = window.sessionStorage.getItem(FORM_HISTORY_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function addToFormHistory(entry) {
+  const history = getFormHistory();
+  history.unshift(entry);
+
+  try {
+    window.sessionStorage.setItem(
+      FORM_HISTORY_STORAGE_KEY,
+      JSON.stringify(history),
+    );
+  } catch (error) {
+    console.warn("Tidak dapat menyimpan riwayat form.", error);
+  }
+
+  renderFormHistory();
+}
+
+function renderFormHistory() {
+  const container = document.getElementById("form-history");
+  const list = document.getElementById("form-history-list");
+  if (!container || !list) return;
+
+  const history = getFormHistory();
+
+  if (history.length === 0) {
+    container.classList.add("hidden");
+    return;
+  }
+
+  list.innerHTML = "";
+
+  history.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "rounded-lg border border-stone-200 bg-white p-3 text-sm";
+
+    const link = document.createElement("a");
+    link.href = entry.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.className = "break-all font-medium text-stone-900 underline";
+    link.textContent = entry.title;
+
+    const time = document.createElement("p");
+    time.className = "mt-1 text-xs text-stone-500";
+    time.textContent = entry.createdAt;
+
+    item.append(link, time);
+    list.appendChild(item);
+  });
+
+  container.classList.remove("hidden");
+}
+
 function showCreatedFormResult(result) {
   const section = document.querySelector("#create-form-section");
   const resultBox = document.querySelector("#created-form-result");
@@ -1208,6 +1272,15 @@ function showCreatedFormResult(result) {
     link.href = result.url;
     link.textContent = result.url;
   }
+
+  addToFormHistory({
+    title: result.title,
+    url: result.url,
+    createdAt: new Date().toLocaleString("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }),
+  });
 }
 
 async function processGoogleForm() {
@@ -1754,6 +1827,7 @@ xlMediaQuery.addEventListener("change", (event) => {
 });
 
 attemptSilentGoogleReconnect();
+renderFormHistory();
 
 const hasRestoredProgress = restoreWizardProgress();
 
