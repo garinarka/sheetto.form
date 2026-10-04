@@ -1,4 +1,4 @@
-![banner](docs/bannerv2.png)
+![banner](assets/docs/bannerv2.png)
 
 # Sheet2Form
 
